@@ -1,101 +1,186 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { Music2 } from "lucide-react";
+import SearchBar from "@/components/layout/SearchBar";
+import SongCard from "@/components/song/SongCard";
+import { SongCardSkeleton } from "@/components/ui/Skeleton";
+import type { Song, Album } from "@/types";
 
-export default function Home() {
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+interface TrendingData {
+  trending: Song[];
+  albums: Album[];
+  playlists: { id: string; name: string; image: string; imageHq: string }[];
+}
+
+export default function HomePage() {
+  const [data, setData] = useState<TrendingData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchTrending() {
+      try {
+        const res = await fetch("/api/saavn/trending");
+        const json = await res.json();
+        if (json.success) {
+          setData(json.data);
+        }
+      } catch {
+        // fail silently
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchTrending();
+  }, []);
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <div className="p-6">
+      {/* Mobile search bar */}
+      <div className="md:hidden mb-6">
+        <SearchBar />
+      </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="font-heading text-2xl md:text-3xl font-bold text-text-primary">
+          {getGreeting()}
+        </h1>
+        <p className="text-text-secondary text-sm mt-1">
+          What do you want to listen to?
+        </p>
+      </div>
+
+      {/* Desktop search bar */}
+      <div className="hidden md:block mb-8">
+        <SearchBar />
+      </div>
+
+      {/* Loading */}
+      {loading && (
+        <div className="space-y-8">
+          <section>
+            <div className="h-6 w-40 bg-bg-tertiary rounded animate-pulse mb-4" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <SongCardSkeleton key={i} />
+              ))}
+            </div>
+          </section>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      )}
+
+      {/* Content */}
+      {!loading && data && (
+        <div className="space-y-10">
+          {/* Trending Songs */}
+          {data.trending.length > 0 && (
+            <section>
+              <h2 className="font-heading text-lg font-semibold text-text-primary mb-4">
+                Trending Now
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {data.trending.slice(0, 10).map((song, i) => (
+                  <SongCard key={song.id} song={song} queue={data.trending} index={i} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* New Albums */}
+          {data.albums.length > 0 && (
+            <section>
+              <h2 className="font-heading text-lg font-semibold text-text-primary mb-4">
+                New Releases
+              </h2>
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                {data.albums.slice(0, 12).map((album) => (
+                  <Link
+                    key={album.id}
+                    href={`/album/${album.id}`}
+                    className="group flex-shrink-0 w-36 sm:w-40 flex flex-col gap-2 p-3 rounded-lg bg-bg-secondary hover:bg-bg-tertiary transition-colors"
+                  >
+                    <div className="relative aspect-square w-full rounded-md overflow-hidden bg-bg-tertiary">
+                      {album.image && (
+                        <Image
+                          src={album.image}
+                          alt={album.name}
+                          fill
+                          className="object-cover"
+                          sizes="160px"
+                        />
+                      )}
+                    </div>
+                    <p className="text-sm font-medium text-text-primary truncate">
+                      {album.name}
+                    </p>
+                    <p className="text-xs text-text-secondary truncate">
+                      {album.artist}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Featured Playlists */}
+          {data.playlists.length > 0 && (
+            <section>
+              <h2 className="font-heading text-lg font-semibold text-text-primary mb-4">
+                Featured Playlists
+              </h2>
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                {data.playlists.slice(0, 12).map((playlist) => (
+                  <Link
+                    key={playlist.id}
+                    href={`/playlist/${playlist.id}`}
+                    className="group flex-shrink-0 w-36 sm:w-40 flex flex-col gap-2 p-3 rounded-lg bg-bg-secondary hover:bg-bg-tertiary transition-colors"
+                  >
+                    <div className="relative aspect-square w-full rounded-md overflow-hidden bg-bg-tertiary">
+                      {playlist.image && (
+                        <Image
+                          src={playlist.image}
+                          alt={playlist.name}
+                          fill
+                          className="object-cover"
+                          sizes="160px"
+                        />
+                      )}
+                    </div>
+                    <p className="text-sm font-medium text-text-primary truncate">
+                      {playlist.name}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
+
+      {/* Empty / Error state */}
+      {!loading && !data && (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="w-20 h-20 rounded-full bg-bg-secondary flex items-center justify-center mb-4">
+            <Music2 className="w-10 h-10 text-text-muted" />
+          </div>
+          <h2 className="font-heading text-lg font-semibold text-text-primary mb-2">
+            Welcome to Wavvy
+          </h2>
+          <p className="text-text-secondary text-sm max-w-sm">
+            Search for your favorite songs, albums, and artists.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

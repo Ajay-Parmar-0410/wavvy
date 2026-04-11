@@ -1,0 +1,176 @@
+"use client";
+
+import { useEffect, useRef, useCallback } from "react";
+import { usePlayerStore } from "@/stores/playerStore";
+import { db } from "@/lib/db";
+
+export default function AudioEngine() {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const seekingRef = useRef(false);
+
+  const currentSong = usePlayerStore((s) => s.currentSong);
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
+  const volume = usePlayerStore((s) => s.volume);
+  const isMuted = usePlayerStore((s) => s.isMuted);
+  const currentTime = usePlayerStore((s) => s.currentTime);
+
+  const setDuration = usePlayerStore((s) => s.setDuration);
+  const setCurrentTime = usePlayerStore((s) => s.setCurrentTime);
+  const setIsPlaying = usePlayerStore((s) => s.setIsPlaying);
+  const playNext = usePlayerStore((s) => s.playNext);
+
+  // Initialize audio element
+  useEffect(() => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+      audioRef.current.preload = "auto";
+    }
+
+    const audio = audioRef.current;
+
+    const onLoadedMetadata = () => setDuration(audio.duration);
+    const onTimeUpdate = () => {
+      if (!seekingRef.current) {
+        setCurrentTime(audio.currentTime);
+      }
+    };
+    const onEnded = () => playNext();
+    const onError = () => setIsPlaying(false);
+
+    audio.addEventListener("loadedmetadata", onLoadedMetadata);
+    audio.addEventListener("timeupdate", onTimeUpdate);
+    audio.addEventListener("ended", onEnded);
+    audio.addEventListener("error", onError);
+
+    return () => {
+      audio.removeEventListener("loadedmetadata", onLoadedMetadata);
+      audio.removeEventListener("timeupdate", onTimeUpdate);
+      audio.removeEventListener("ended", onEnded);
+      audio.removeEventListener("error", onError);
+    };
+  }, [setDuration, setCurrentTime, setIsPlaying, playNext]);
+
+  // Load new song + record history
+  const lastRecordedId = useRef<string | null>(null);
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !currentSong) return;
+
+    async function loadSong() {
+      let url = currentSong!.streamUrl;
+
+      // For YouTube songs without a stream URL, fetch it
+      if (!url && currentSong!.source === "youtube") {
+        try {
+          const res = await fetch(`/api/yt/stream/${currentSong!.sourceId}`);
+          const json = await res.json();
+          if (json.success) {
+            url = json.data.streamUrl;
+          }
+        } catch {
+          setIsPlaying(false);
+          return;
+        }
+      }
+
+      if (!url) {
+        setIsPlaying(false);
+        return;
+      }
+
+      audio!.src = url;
+      audio!.load();
+
+      // Record play in history (avoid duplicate for same song)
+      if (currentSong!.id !== lastRecordedId.current) {
+        lastRecordedId.current = currentSong!.id;
+        db.history.add({ song: currentSong!, playedAt: Date.now() });
+      }
+    }
+
+    loadSong();
+  }, [currentSong, setIsPlaying]);
+
+  // Play/pause
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !currentSong?.streamUrl) return;
+
+    if (isPlaying) {
+      audio.play().catch(() => setIsPlaying(false));
+    } else {
+      audio.pause();
+    }
+  }, [isPlaying, currentSong?.streamUrl, currentSong?.id, setIsPlaying]);
+
+  // Volume
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.volume = isMuted ? 0 : volume;
+  }, [volume, isMuted]);
+
+  // Seek — detect store-driven seek (user dragged the seek bar)
+  const lastStoreTime = useRef(0);
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const diff = Math.abs(currentTime - audio.currentTime);
+    // Only seek if the store time diverges significantly (user-initiated seek)
+    if (diff > 1.5) {
+      audio.currentTime = currentTime;
+    }
+    lastStoreTime.current = currentTime;
+  }, [currentTime]);
+
+  // Media Session API (lock screen controls)
+  const handleMediaAction = useCallback(
+    (action: string) => {
+      const store = usePlayerStore.getState();
+      switch (action) {
+        case "play":
+          store.setIsPlaying(true);
+          break;
+        case "pause":
+          store.setIsPlaying(false);
+          break;
+        case "previoustrack":
+          store.playPrevious();
+          break;
+        case "nexttrack":
+          store.playNext();
+          break;
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator) || !currentSong) return;
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: currentSong.title,
+      artist: currentSong.artist,
+      album: currentSong.album,
+      artwork: [
+        { src: currentSong.image, sizes: "96x96", type: "image/jpeg" },
+        { src: currentSong.imageHq, sizes: "512x512", type: "image/jpeg" },
+      ],
+    });
+
+    const actions: MediaSessionAction[] = [
+      "play",
+      "pause",
+      "previoustrack",
+      "nexttrack",
+    ];
+    actions.forEach((action) => {
+      navigator.mediaSession.setActionHandler(action, () =>
+        handleMediaAction(action)
+      );
+    });
+  }, [currentSong, handleMediaAction]);
+
+  return null;
+}
