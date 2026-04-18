@@ -24,6 +24,19 @@ export default function ClientLayout({
     ensureDefaultPlaylist();
   }, []);
 
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      !("serviceWorker" in navigator) ||
+      process.env.NODE_ENV !== "production"
+    ) {
+      return;
+    }
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // swallow registration failures
+    });
+  }, []);
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Desktop sidebar */}
