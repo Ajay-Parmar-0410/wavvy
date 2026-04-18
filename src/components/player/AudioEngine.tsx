@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { usePlayerStore } from "@/stores/playerStore";
 import { db } from "@/lib/db";
+import { getOfflineStreamUrl } from "@/hooks/useDownload";
 
 export default function AudioEngine() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -58,6 +59,12 @@ export default function AudioEngine() {
 
     async function loadSong() {
       let url = currentSong!.streamUrl;
+
+      // Try offline cache first
+      const offlineUrl = await getOfflineStreamUrl(currentSong!.id);
+      if (offlineUrl) {
+        url = offlineUrl;
+      }
 
       // For YouTube songs without a stream URL, fetch it
       if (!url && currentSong!.source === "youtube") {

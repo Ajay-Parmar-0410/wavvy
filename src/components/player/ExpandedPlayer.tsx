@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useLikedSongs } from "@/hooks/usePlaylist";
+import { useDownloadSong } from "@/hooks/useDownload";
+import { toast } from "@/stores/toastStore";
 import { cn } from "@/lib/utils";
 import SeekBar from "./SeekBar";
 
@@ -37,6 +39,7 @@ export default function ExpandedPlayer() {
   const toggleQueue = usePlayerStore((s) => s.toggleQueue);
 
   const { isLiked, toggleLike } = useLikedSongs();
+  const { saveOffline } = useDownloadSong();
   const songIsLiked = currentSong ? isLiked(currentSong.id) : false;
 
   const [lyrics, setLyrics] = useState<string | null>(null);
@@ -235,6 +238,13 @@ export default function ExpandedPlayer() {
               </button>
 
               <button
+                onClick={async () => {
+                  if (!currentSong) return;
+                  toast.info(`Saving "${currentSong.title}" offline...`);
+                  const ok = await saveOffline(currentSong);
+                  if (ok) toast.success("Saved for offline listening");
+                  else toast.error("Failed to save offline");
+                }}
                 className="p-2 text-text-muted hover:text-text-primary transition-colors"
                 aria-label="Download"
               >
@@ -256,6 +266,12 @@ export default function ExpandedPlayer() {
               )}
 
               <button
+                onClick={() => {
+                  if (!currentSong) return;
+                  const url = `${window.location.origin}/song/${currentSong.sourceId}`;
+                  navigator.clipboard?.writeText(url);
+                  toast.success("Link copied to clipboard");
+                }}
                 className="p-2 text-text-muted hover:text-text-primary transition-colors"
                 aria-label="Share"
               >

@@ -7,10 +7,13 @@ import {
   ListEnd,
   Heart,
   Download,
+  HardDriveDownload,
   Share2,
   Plus,
 } from "lucide-react";
 import { usePlayerStore } from "@/stores/playerStore";
+import { useDownloadSong } from "@/hooks/useDownload";
+import { toast } from "@/stores/toastStore";
 import type { Song } from "@/types";
 
 interface SongContextMenuProps {
@@ -33,6 +36,7 @@ export default function SongContextMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const addToQueueNext = usePlayerStore((s) => s.addToQueueNext);
   const addToQueue = usePlayerStore((s) => s.addToQueue);
+  const { downloadToDevice, saveOffline } = useDownloadSong();
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -54,8 +58,8 @@ export default function SongContextMenu({
   if (!song || !position) return null;
 
   // Adjust position to stay within viewport
-  const menuWidth = 200;
-  const menuHeight = 250;
+  const menuWidth = 220;
+  const menuHeight = 300;
   const x = Math.min(position.x, window.innerWidth - menuWidth - 10);
   const y = Math.min(position.y, window.innerHeight - menuHeight - 10);
 
@@ -65,6 +69,7 @@ export default function SongContextMenu({
       label: "Play Next",
       onClick: () => {
         addToQueueNext(song);
+        toast.info(`"${song.title}" will play next`);
         onClose();
       },
     },
@@ -73,6 +78,7 @@ export default function SongContextMenu({
       label: "Add to Queue",
       onClick: () => {
         addToQueue(song);
+        toast.info(`Added "${song.title}" to queue`);
         onClose();
       },
     },
@@ -89,19 +95,30 @@ export default function SongContextMenu({
       label: isLiked ? "Remove from Liked" : "Like",
       onClick: () => {
         onToggleLike(song);
+        toast.success(isLiked ? "Removed from Liked Songs" : "Added to Liked Songs");
         onClose();
       },
     },
     {
       icon: Download,
-      label: "Download",
-      onClick: () => {
-        if (song.downloadUrl?.["320"]) {
-          window.open(song.downloadUrl["320"], "_blank");
-        } else if (song.streamUrl) {
-          window.open(song.streamUrl, "_blank");
-        }
+      label: "Download to Device",
+      onClick: async () => {
         onClose();
+        toast.info(`Downloading "${song.title}"...`);
+        const ok = await downloadToDevice(song);
+        if (ok) toast.success("Download started");
+        else toast.error("Download failed");
+      },
+    },
+    {
+      icon: HardDriveDownload,
+      label: "Save Offline",
+      onClick: async () => {
+        onClose();
+        toast.info(`Saving "${song.title}" offline...`);
+        const ok = await saveOffline(song);
+        if (ok) toast.success("Saved for offline listening");
+        else toast.error("Failed to save offline");
       },
     },
     {
@@ -110,6 +127,7 @@ export default function SongContextMenu({
       onClick: () => {
         const url = `${window.location.origin}/song/${song.sourceId}`;
         navigator.clipboard?.writeText(url);
+        toast.success("Link copied to clipboard");
         onClose();
       },
     },
@@ -123,7 +141,7 @@ export default function SongContextMenu({
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.1 }}
-        className="fixed z-[80] bg-bg-secondary border border-border rounded-lg shadow-xl py-1 min-w-[180px]"
+        className="fixed z-[80] bg-bg-secondary border border-border rounded-lg shadow-xl py-1 min-w-[200px]"
         style={{ left: x, top: y }}
       >
         {items.map(({ icon: Icon, label, onClick }) => (

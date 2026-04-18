@@ -6,6 +6,7 @@ import MobileNav from "./MobileNav";
 import PlayerBar from "@/components/player/PlayerBar";
 import ExpandedPlayer from "@/components/player/ExpandedPlayer";
 import QueuePanel from "@/components/player/QueuePanel";
+import ToastContainer from "@/components/ui/Toast";
 import { usePlayerStore } from "@/stores/playerStore";
 import { ensureDefaultPlaylist } from "@/lib/db";
 import useKeyboardShortcuts from "@/hooks/useKeyboardShortcuts";
@@ -53,6 +54,9 @@ export default function ClientLayout({
 
       {/* Mobile bottom navigation */}
       <MobileNav />
+
+      {/* Toast notifications */}
+      <ToastContainer />
     </div>
   );
 }
