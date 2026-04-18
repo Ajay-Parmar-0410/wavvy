@@ -66,13 +66,21 @@ export default function AudioEngine() {
         url = offlineUrl;
       }
 
-      // For YouTube songs without a stream URL, fetch it
-      if (!url && currentSong!.source === "youtube") {
+      // For songs without a stream URL, fetch on-demand
+      if (!url) {
         try {
-          const res = await fetch(`/api/yt/stream/${currentSong!.sourceId}`);
-          const json = await res.json();
-          if (json.success) {
-            url = json.data.streamUrl;
+          if (currentSong!.source === "youtube") {
+            const res = await fetch(`/api/yt/stream/${currentSong!.sourceId}`);
+            const json = await res.json();
+            if (json.success) {
+              url = json.data.streamUrl;
+            }
+          } else if (currentSong!.source === "saavn") {
+            const res = await fetch(`/api/saavn/song/${currentSong!.sourceId}`);
+            const json = await res.json();
+            if (json.success && json.data.streamUrl) {
+              url = json.data.streamUrl;
+            }
           }
         } catch {
           setIsPlaying(false);

@@ -103,7 +103,11 @@ function parseArtist(raw: any): Artist {
     name: decodeEntities(raw.title || raw.name || ""),
     image: sanitizeImageUrl(raw.image, "150x150"),
     imageHq: sanitizeImageUrl(raw.image, "500x500"),
-    bio: raw.bio ? raw.bio.map((b: { text: string }) => b.text).join(" ") : undefined,
+    bio: Array.isArray(raw.bio)
+      ? raw.bio.map((b: { text: string }) => b.text).join(" ")
+      : typeof raw.bio === "string"
+        ? raw.bio
+        : undefined,
     source: "saavn",
   };
 }

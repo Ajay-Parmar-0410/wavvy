@@ -2,9 +2,9 @@
 import type { Song } from "@/types";
 
 const PIPED_INSTANCES = [
-  "https://pipedapi.kavin.rocks",
-  "https://pipedapi.adminforge.de",
-  "https://pipedapi.in.projectsegfau.lt",
+  "https://pipedapi.wireway.ch",
+  "https://pipedapi.tokhmi.xyz",
+  "https://api.piped.projectsegfau.lt",
 ];
 
 async function fetchPiped(path: string): Promise<any> {
@@ -17,7 +17,11 @@ async function fetchPiped(path: string): Promise<any> {
         next: { revalidate: 60 },
       });
       if (res.ok) {
-        return res.json();
+        const text = await res.text();
+        if (!text || text.startsWith("<") || text.startsWith("Service")) {
+          continue; // HTML or shutdown page, skip to next instance
+        }
+        return JSON.parse(text);
       }
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
