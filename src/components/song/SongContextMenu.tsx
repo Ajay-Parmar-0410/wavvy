@@ -8,7 +8,6 @@ import {
   ListEnd,
   Heart,
   Download,
-  HardDriveDownload,
   Share2,
   Plus,
   Ban,
@@ -55,7 +54,7 @@ export default function SongContextMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const addToQueueNext = usePlayerStore((s) => s.addToQueueNext);
   const addToQueue = usePlayerStore((s) => s.addToQueue);
-  const { downloadToDevice, saveOffline } = useDownloadSong();
+  const { saveOffline } = useDownloadSong();
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -199,25 +198,13 @@ export default function SongContextMenu({
     {
       kind: "action",
       icon: Download,
-      label: "Download to device",
+      label: "Download",
       onClick: async () => {
         onClose();
         toast.info(`Downloading "${song.title}"...`);
-        const ok = await downloadToDevice(song);
-        if (ok) toast.success("Download started");
-        else toast.error("Download failed");
-      },
-    },
-    {
-      kind: "action",
-      icon: HardDriveDownload,
-      label: "Save offline",
-      onClick: async () => {
-        onClose();
-        toast.info(`Saving "${song.title}" offline...`);
         const ok = await saveOffline(song);
-        if (ok) toast.success("Saved for offline listening");
-        else toast.error("Failed to save offline");
+        if (ok) toast.success("Download complete — available offline");
+        else toast.error("Download failed");
       },
     },
     {

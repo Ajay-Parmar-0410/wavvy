@@ -141,7 +141,7 @@ export default function SearchBar() {
   const open = showDropdown && query.trim().length >= 2;
 
   return (
-    <div ref={containerRef} className="relative w-full max-w-md">
+    <div ref={containerRef} className="relative w-full">
       <form onSubmit={handleSubmit}>
         <div
           className={cn(

@@ -2,7 +2,14 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Home, Bell, Users, Download as DownloadIcon } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Home,
+  Bell,
+  Users,
+  Download as DownloadIcon,
+} from "lucide-react";
 import SearchBar from "./SearchBar";
 import { cn } from "@/lib/utils";
 
@@ -14,11 +21,11 @@ export default function TopBar() {
 
   return (
     <header
-      className="hidden md:flex items-center gap-4 px-4 flex-shrink-0 bg-bg-primary"
+      className="hidden md:grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 flex-shrink-0 bg-bg-primary"
       style={{ height: "var(--topbar-height)" }}
     >
-      {/* Back/forward */}
-      <div className="flex items-center gap-2">
+      {/* Left: back/forward */}
+      <div className="flex items-center gap-2 justify-self-start">
         <button
           type="button"
           onClick={() => router.back()}
@@ -37,8 +44,8 @@ export default function TopBar() {
         </button>
       </div>
 
-      {/* Home + search */}
-      <div className="flex items-center gap-2 flex-1 max-w-2xl">
+      {/* Center: Home + search */}
+      <div className="flex items-center gap-2 w-full max-w-[520px] justify-self-center">
         <Link
           href="/"
           aria-label="Home"
@@ -51,13 +58,13 @@ export default function TopBar() {
         >
           <Home className="w-6 h-6 fill-current" />
         </Link>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <SearchBar />
         </div>
       </div>
 
       {/* Right: stubs for notifications / friends / install / avatar */}
-      <div className="ml-auto flex items-center gap-3">
+      <div className="flex items-center gap-3 justify-self-end">
         <button
           type="button"
           aria-label="What's new"

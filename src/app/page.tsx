@@ -123,8 +123,8 @@ export default function HomePage() {
         </h1>
       </div>
 
-      {/* Your shortcuts — 2-col (matches Spotify) */}
-      {jumpBackIn.length > 0 && (
+      {/* Your shortcuts — 2-col (matches Spotify). Hidden on Podcasts tab. */}
+      {chip !== "Podcasts" && jumpBackIn.length > 0 && (
         <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 mb-10">
           {jumpBackIn.map((item) => (
             <Link
@@ -178,7 +178,21 @@ export default function HomePage() {
         </div>
       )}
 
-      {!loading && data && (
+      {!loading && chip === "Podcasts" && (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="w-20 h-20 rounded-full bg-bg-secondary flex items-center justify-center mb-4">
+            <Music2 className="w-10 h-10 text-text-muted" />
+          </div>
+          <h2 className="font-heading text-lg font-semibold text-text-primary mb-2">
+            Podcasts are coming soon
+          </h2>
+          <p className="text-text-secondary text-sm max-w-sm">
+            We&rsquo;re working on bringing shows and episodes to Wavvy.
+          </p>
+        </div>
+      )}
+
+      {!loading && data && chip !== "Podcasts" && (
         <div className="space-y-10">
           {/* Today's biggest hits */}
           {data.trending.length > 0 && (
@@ -263,8 +277,8 @@ export default function HomePage() {
             </Rail>
           )}
 
-          {/* Featured Playlists */}
-          {data.playlists.length > 0 && (
+          {/* Featured Playlists — hidden on Music tab */}
+          {chip === "All" && data.playlists.length > 0 && (
             <Rail title="Featured playlists" seeAllHref="/search?q=playlists">
               {data.playlists.slice(0, 12).map((playlist) => (
                 <Link

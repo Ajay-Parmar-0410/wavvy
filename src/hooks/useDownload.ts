@@ -86,62 +86,6 @@ export function useDownloadSong() {
     Map<string, DownloadProgress>
   >(new Map());
 
-  const downloadToDevice = useCallback(
-    async (song: Song, quality: DownloadQuality = "320") => {
-      const url = song.downloadUrl?.[quality] || song.streamUrl;
-      if (!url) return false;
-
-      try {
-        setActiveDownloads((prev) => {
-          const next = new Map(prev);
-          next.set(song.id, {
-            songId: song.id,
-            progress: 0,
-            status: "downloading",
-          });
-          return next;
-        });
-
-        const response = await fetch(url);
-        if (!response.ok) throw new Error("Download failed");
-
-        const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = blobUrl;
-        a.download = `${song.title} - ${song.artist}.mp3`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(blobUrl);
-
-        setActiveDownloads((prev) => {
-          const next = new Map(prev);
-          next.set(song.id, {
-            songId: song.id,
-            progress: 100,
-            status: "completed",
-          });
-          return next;
-        });
-
-        return true;
-      } catch {
-        setActiveDownloads((prev) => {
-          const next = new Map(prev);
-          next.set(song.id, {
-            songId: song.id,
-            progress: 0,
-            status: "error",
-          });
-          return next;
-        });
-        return false;
-      }
-    },
-    []
-  );
-
   const saveOffline = useCallback(
     async (song: Song, quality: DownloadQuality = "320") => {
       const url = song.downloadUrl?.[quality] || song.streamUrl;
@@ -218,7 +162,6 @@ export function useDownloadSong() {
   );
 
   return {
-    downloadToDevice,
     saveOffline,
     getDownloadProgress,
     activeDownloads,
