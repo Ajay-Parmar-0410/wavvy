@@ -78,7 +78,7 @@ export default function CreateSheet({ isOpen, onClose }: CreateSheetProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="md:hidden fixed inset-0 z-[85] bg-black/60"
+            className="fixed inset-0 z-[85] bg-black/60"
             onClick={onClose}
           />
           <motion.div
@@ -86,7 +86,7 @@ export default function CreateSheet({ isOpen, onClose }: CreateSheetProps) {
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "tween", duration: 0.22, ease: "easeOut" }}
-            className="md:hidden fixed bottom-0 left-0 right-0 z-[86] bg-bg-secondary rounded-t-2xl pb-[calc(env(safe-area-inset-bottom)+12px)]"
+            className="fixed bottom-0 left-0 right-0 z-[86] bg-bg-secondary rounded-t-2xl pb-[calc(env(safe-area-inset-bottom)+12px)]"
             role="dialog"
             aria-label="Create menu"
           >

@@ -19,7 +19,7 @@ import {
   Upload,
 } from "lucide-react";
 import { usePlaylists } from "@/hooks/usePlaylist";
-import CreatePlaylistModal from "@/components/playlist/CreatePlaylistModal";
+import { useMobileUiStore } from "@/stores/mobileUiStore";
 import { cn } from "@/lib/utils";
 import type { Playlist } from "@/types";
 
@@ -35,8 +35,8 @@ const SORT_LABELS: Record<SortKey, string> = {
 };
 
 export default function LibraryPage() {
-  const { playlists, loading, createPlaylist } = usePlaylists();
-  const [showCreate, setShowCreate] = useState(false);
+  const { playlists, loading } = usePlaylists();
+  const openCreateSheet = useMobileUiStore((s) => s.openCreateSheet);
   const [filter, setFilter] = useState<Filter>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [sortKey, setSortKey] = useState<SortKey>("recents");
@@ -96,7 +96,7 @@ export default function LibraryPage() {
           <button
             type="button"
             aria-label="Create"
-            onClick={() => setShowCreate(true)}
+            onClick={openCreateSheet}
             className="p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
           >
             <Plus className="w-5 h-5" />
@@ -191,7 +191,7 @@ export default function LibraryPage() {
           ))}
         </div>
       ) : filteredPlaylists.length === 0 ? (
-        <EmptyState onCreate={() => setShowCreate(true)} />
+        <EmptyState onCreate={openCreateSheet} />
       ) : viewMode === "list" ? (
         <ul className="space-y-1">
           {filteredPlaylists.map((playlist) => (
@@ -230,11 +230,6 @@ export default function LibraryPage() {
         />
       </div>
 
-      <CreatePlaylistModal
-        isOpen={showCreate}
-        onClose={() => setShowCreate(false)}
-        onCreate={createPlaylist}
-      />
     </div>
   );
 }
