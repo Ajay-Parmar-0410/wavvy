@@ -7,6 +7,7 @@ import { Play, Pause, User, CheckCircle2 } from "lucide-react";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useLikedSongs } from "@/hooks/usePlaylist";
 import PlaylistHeader from "@/components/playlist/PlaylistHeader";
+import ArtistMobileHero from "@/components/artist/ArtistMobileHero";
 import SongRow from "@/components/song/SongRow";
 import SongContextMenu from "@/components/song/SongContextMenu";
 import AddToPlaylistModal from "@/components/playlist/AddToPlaylistModal";
@@ -134,7 +135,14 @@ export default function ArtistPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
+      <ArtistMobileHero
+        artist={artist}
+        isPlaying={isArtistPlaying}
+        onPlay={handlePlayTop}
+        disabled={topSongs.length === 0}
+      />
+      <div className="hidden md:block">
       <PlaylistHeader
         kind="Artist"
         title={artist.name}
@@ -164,6 +172,7 @@ export default function ArtistPage({ params }: { params: { id: string } }) {
           </button>
         }
       />
+      </div>
 
       {/* Popular */}
       {topSongs.length > 0 && (

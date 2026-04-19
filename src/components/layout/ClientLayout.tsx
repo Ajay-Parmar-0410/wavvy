@@ -6,11 +6,14 @@ import LibrarySidebar from "./LibrarySidebar";
 import RightPanel from "./RightPanel";
 import MobileNav from "./MobileNav";
 import MobileTopBar from "./MobileTopBar";
+import ProfileDrawer from "./ProfileDrawer";
+import CreateSheet from "./CreateSheet";
 import PlayerBar from "@/components/player/PlayerBar";
 import ExpandedPlayer from "@/components/player/ExpandedPlayer";
 import QueuePanel from "@/components/player/QueuePanel";
 import ToastContainer from "@/components/ui/Toast";
 import { usePlayerStore } from "@/stores/playerStore";
+import { useMobileUiStore } from "@/stores/mobileUiStore";
 import { ensureDefaultPlaylist } from "@/lib/db";
 import useKeyboardShortcuts from "@/hooks/useKeyboardShortcuts";
 
@@ -20,6 +23,10 @@ export default function ClientLayout({
   children: React.ReactNode;
 }) {
   const currentSong = usePlayerStore((s) => s.currentSong);
+  const profileDrawerOpen = useMobileUiStore((s) => s.profileDrawerOpen);
+  const closeProfileDrawer = useMobileUiStore((s) => s.closeProfileDrawer);
+  const createSheetOpen = useMobileUiStore((s) => s.createSheetOpen);
+  const closeCreateSheet = useMobileUiStore((s) => s.closeCreateSheet);
 
   useKeyboardShortcuts();
 
@@ -82,6 +89,13 @@ export default function ClientLayout({
 
       {/* Mobile nav */}
       <MobileNav />
+
+      {/* Mobile overlays */}
+      <ProfileDrawer
+        isOpen={profileDrawerOpen}
+        onClose={closeProfileDrawer}
+      />
+      <CreateSheet isOpen={createSheetOpen} onClose={closeCreateSheet} />
 
       {/* Toasts */}
       <ToastContainer />

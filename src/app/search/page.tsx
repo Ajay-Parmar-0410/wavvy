@@ -8,6 +8,7 @@ import Link from "next/link";
 import SearchBar from "@/components/layout/SearchBar";
 import SongRow from "@/components/song/SongRow";
 import RecentSearches from "@/components/search/RecentSearches";
+import StartBrowsing from "@/components/search/StartBrowsing";
 import BrowseAllGrid from "@/components/search/BrowseAllGrid";
 import { SongRowSkeleton, SongCardSkeleton } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/utils";
@@ -276,10 +277,11 @@ function SearchContent() {
         </div>
       )}
 
-      {/* Initial state — Spotify-style Recent searches + Browse all */}
+      {/* Initial state — Spotify-style Recent searches + Start browsing + Browse all */}
       {!searched && (
         <div className="space-y-8">
           <RecentSearches />
+          <StartBrowsing />
           <BrowseAllGrid />
         </div>
       )}
