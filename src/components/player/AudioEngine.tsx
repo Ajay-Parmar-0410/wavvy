@@ -57,6 +57,8 @@ export default function AudioEngine() {
     const audio = audioRef.current;
     if (!audio || !currentSong) return;
 
+    let cancelled = false;
+
     async function loadSong() {
       let url = currentSong!.streamUrl;
 
@@ -83,10 +85,12 @@ export default function AudioEngine() {
             }
           }
         } catch {
-          setIsPlaying(false);
+          if (!cancelled) setIsPlaying(false);
           return;
         }
       }
+
+      if (cancelled) return;
 
       if (!url) {
         setIsPlaying(false);
@@ -96,6 +100,11 @@ export default function AudioEngine() {
       audio!.src = url;
       audio!.load();
 
+      // If user intended to play, kick off playback now that src is ready
+      if (usePlayerStore.getState().isPlaying) {
+        audio!.play().catch(() => setIsPlaying(false));
+      }
+
       // Record play in history (avoid duplicate for same song)
       if (currentSong!.id !== lastRecordedId.current) {
         lastRecordedId.current = currentSong!.id;
@@ -104,19 +113,22 @@ export default function AudioEngine() {
     }
 
     loadSong();
+    return () => {
+      cancelled = true;
+    };
   }, [currentSong, setIsPlaying]);
 
-  // Play/pause
+  // Play/pause — only acts when audio has already loaded a source
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || !currentSong?.streamUrl) return;
+    if (!audio || !audio.src) return;
 
     if (isPlaying) {
       audio.play().catch(() => setIsPlaying(false));
     } else {
       audio.pause();
     }
-  }, [isPlaying, currentSong?.streamUrl, currentSong?.id, setIsPlaying]);
+  }, [isPlaying, setIsPlaying]);
 
   // Volume
   useEffect(() => {
