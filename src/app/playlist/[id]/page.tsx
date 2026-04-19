@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Image from "next/image";
-import { Play, Shuffle, Heart, Music, Trash2 } from "lucide-react";
+import { Music, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/db";
 import { usePlayerStore } from "@/stores/playerStore";
@@ -10,11 +9,26 @@ import { useLikedSongs } from "@/hooks/usePlaylist";
 import SongRow from "@/components/song/SongRow";
 import SongContextMenu from "@/components/song/SongContextMenu";
 import AddToPlaylistModal from "@/components/playlist/AddToPlaylistModal";
+import PlaylistHeader, {
+  LikedCoverFallback,
+} from "@/components/playlist/PlaylistHeader";
+import RecommendedForPlaylist from "@/components/playlist/RecommendedForPlaylist";
 import type { Playlist, Song } from "@/types";
+
+function formatTotalTime(seconds: number): string {
+  if (seconds < 60) return `${seconds} sec`;
+  const mins = Math.round(seconds / 60);
+  if (mins < 60) return `${mins} min`;
+  const hours = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  return `${hours} hr ${remMins} min`;
+}
 
 export default function PlaylistPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const playSong = usePlayerStore((s) => s.playSong);
+  const currentSong = usePlayerStore((s) => s.currentSong);
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
   const { isLiked, toggleLike } = useLikedSongs();
 
   const [playlist, setPlaylist] = useState<Playlist | null>(null);
@@ -26,7 +40,6 @@ export default function PlaylistPage({ params }: { params: { id: string } }) {
   const [addToPlaylistSong, setAddToPlaylistSong] = useState<Song | null>(null);
 
   const loadPlaylist = useCallback(async () => {
-    // Check local IndexedDB first
     const local = await db.playlists.get(params.id);
     if (local) {
       setPlaylist(local);
@@ -34,7 +47,6 @@ export default function PlaylistPage({ params }: { params: { id: string } }) {
       return;
     }
 
-    // Otherwise try fetching from JioSaavn API
     try {
       const res = await fetch(`/api/saavn/playlist/${params.id}`);
       const json = await res.json();
@@ -58,10 +70,16 @@ export default function PlaylistPage({ params }: { params: { id: string } }) {
     loadPlaylist();
   }, [loadPlaylist]);
 
+  const isCurrentPlaylistPlaying =
+    playlist?.songs.some((s) => s.id === currentSong?.id) && isPlaying;
+
   const handlePlayAll = () => {
-    if (playlist && playlist.songs.length > 0) {
-      playSong(playlist.songs[0], playlist.songs, 0);
+    if (!playlist || playlist.songs.length === 0) return;
+    if (isCurrentPlaylistPlaying) {
+      usePlayerStore.getState().togglePlay();
+      return;
     }
+    playSong(playlist.songs[0], playlist.songs, 0);
   };
 
   const handleShufflePlay = () => {
@@ -122,70 +140,30 @@ export default function PlaylistPage({ params }: { params: { id: string } }) {
   }
 
   const coverImage = playlist.songs[0]?.imageHq || playlist.songs[0]?.image;
+  const totalDuration = playlist.songs.reduce(
+    (sum, s) => sum + (s.duration || 0),
+    0
+  );
+  const songWord = playlist.songs.length === 1 ? "song" : "songs";
+  const meta =
+    playlist.songs.length > 0
+      ? `${playlist.songs.length} ${songWord} · ${formatTotalTime(totalDuration)}`
+      : `${playlist.songs.length} ${songWord}`;
 
   return (
     <div className="p-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row gap-6 mb-8">
-        {/* Cover */}
-        <div className="relative w-48 h-48 md:w-56 md:h-56 rounded-xl overflow-hidden bg-bg-secondary flex-shrink-0 mx-auto md:mx-0 shadow-xl">
-          {playlist.isDefault ? (
-            <div className="w-full h-full bg-gradient-to-br from-accent-secondary to-accent-primary flex items-center justify-center">
-              <Heart className="w-20 h-20 text-white fill-white" />
-            </div>
-          ) : coverImage ? (
-            <Image
-              src={coverImage}
-              alt={playlist.name}
-              fill
-              className="object-cover"
-              sizes="224px"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Music className="w-20 h-20 text-text-muted" />
-            </div>
-          )}
-        </div>
-
-        {/* Info */}
-        <div className="flex flex-col justify-end text-center md:text-left">
-          <p className="text-xs font-medium text-text-secondary uppercase tracking-wider mb-1">
-            Playlist
-          </p>
-          <h1 className="font-heading text-3xl md:text-4xl font-bold text-text-primary mb-2">
-            {playlist.name}
-          </h1>
-          {playlist.description && (
-            <p className="text-sm text-text-secondary mb-2">
-              {playlist.description}
-            </p>
-          )}
-          <p className="text-sm text-text-muted">
-            {playlist.songs.length} song{playlist.songs.length !== 1 ? "s" : ""}
-          </p>
-
-          {/* Actions */}
-          <div className="flex items-center gap-3 mt-4 justify-center md:justify-start">
-            <button
-              onClick={handlePlayAll}
-              disabled={playlist.songs.length === 0}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-accent-primary text-bg-primary font-medium text-sm hover:brightness-110 disabled:opacity-50 transition-all"
-            >
-              <Play className="w-4 h-4 fill-current" />
-              Play
-            </button>
-            <button
-              onClick={handleShufflePlay}
-              disabled={playlist.songs.length === 0}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-bg-tertiary text-text-primary font-medium text-sm hover:bg-border disabled:opacity-50 transition-colors"
-            >
-              <Shuffle className="w-4 h-4" />
-              Shuffle
-            </button>
-          </div>
-        </div>
-      </div>
+      <PlaylistHeader
+        kind="Playlist"
+        title={playlist.name}
+        subtitle={playlist.description}
+        meta={meta}
+        coverUrl={playlist.isDefault ? undefined : coverImage}
+        coverFallback={playlist.isDefault ? <LikedCoverFallback /> : null}
+        isPlaying={!!isCurrentPlaylistPlaying}
+        onPlay={handlePlayAll}
+        onShuffle={handleShufflePlay}
+        disabled={playlist.songs.length === 0}
+      />
 
       {/* Songs */}
       {playlist.songs.length === 0 ? (
@@ -196,32 +174,56 @@ export default function PlaylistPage({ params }: { params: { id: string } }) {
           </p>
         </div>
       ) : (
-        <div className="space-y-0.5">
-          {playlist.songs.map((song, i) => (
-            <div key={song.id} className="group relative flex items-center">
-              <div className="flex-1">
-                <SongRow
-                  song={song}
-                  index={i}
-                  showIndex
-                  queue={playlist.songs}
-                  onContextMenu={handleContextMenu}
-                />
+        <>
+          {/* Column headers — Spotify track table */}
+          <div className="hidden md:grid grid-cols-[16px_4fr_2fr_1fr] gap-4 px-4 py-2 border-b border-border text-[11px] uppercase tracking-wider text-text-muted font-semibold mt-8">
+            <span>#</span>
+            <span>Title</span>
+            <span>Album</span>
+            <span className="text-right">Duration</span>
+          </div>
+          <div className="space-y-0.5 mt-2">
+            {playlist.songs.map((song, i) => (
+              <div key={song.id} className="group relative flex items-center">
+                <div className="flex-1">
+                  <SongRow
+                    song={song}
+                    index={i}
+                    showIndex
+                    queue={playlist.songs}
+                    onContextMenu={handleContextMenu}
+                  />
+                </div>
+                <button
+                  onClick={() => handleRemoveSong(song.id)}
+                  className="p-1.5 opacity-0 group-hover:opacity-100 text-text-muted hover:text-danger transition-all mr-2"
+                  aria-label="Remove from playlist"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
-              {/* Remove button for local playlists */}
-              <button
-                onClick={() => handleRemoveSong(song.id)}
-                className="p-1.5 opacity-0 group-hover:opacity-100 text-text-muted hover:text-danger transition-all mr-2"
-                aria-label="Remove from playlist"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+
+          {/* Recommended */}
+          <RecommendedForPlaylist
+            playlistId={playlist.id}
+            seedSongs={playlist.songs}
+            onSongAdded={(song) =>
+              setPlaylist((p) =>
+                p
+                  ? {
+                      ...p,
+                      songs: [...p.songs, song],
+                      updatedAt: Date.now(),
+                    }
+                  : p
+              )
+            }
+          />
+        </>
       )}
 
-      {/* Context Menu */}
       <SongContextMenu
         song={contextMenu?.song ?? null}
         position={contextMenu?.position ?? null}
@@ -234,7 +236,6 @@ export default function PlaylistPage({ params }: { params: { id: string } }) {
         onToggleLike={(song) => toggleLike(song)}
       />
 
-      {/* Add to Playlist Modal */}
       <AddToPlaylistModal
         isOpen={!!addToPlaylistSong}
         song={addToPlaylistSong}
@@ -243,4 +244,3 @@ export default function PlaylistPage({ params }: { params: { id: string } }) {
     </div>
   );
 }
-

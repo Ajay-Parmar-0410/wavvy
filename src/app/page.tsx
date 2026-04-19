@@ -1,13 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Music2 } from "lucide-react";
-import SearchBar from "@/components/layout/SearchBar";
-import SongCard from "@/components/song/SongCard";
+import { Music2, Play, Heart } from "lucide-react";
+import { usePlayerStore } from "@/stores/playerStore";
+import { useHistory } from "@/hooks/useHistory";
+import { usePlaylists } from "@/hooks/usePlaylist";
 import { SongCardSkeleton } from "@/components/ui/Skeleton";
-import type { Song, Album } from "@/types";
+import { cn } from "@/lib/utils";
+import type { Song, Album, Playlist } from "@/types";
+
+interface TrendingData {
+  trending: Song[];
+  albums: Album[];
+  playlists: { id: string; name: string; image: string; imageHq: string }[];
+}
+
+type Chip = "All" | "Music" | "Podcasts";
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -16,60 +26,169 @@ function getGreeting(): string {
   return "Good evening";
 }
 
-interface TrendingData {
-  trending: Song[];
-  albums: Album[];
-  playlists: { id: string; name: string; image: string; imageHq: string }[];
+interface JumpItem {
+  id: string;
+  href: string;
+  title: string;
+  image?: string;
+  fallback?: React.ReactNode;
 }
 
 export default function HomePage() {
   const [data, setData] = useState<TrendingData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [chip, setChip] = useState<Chip>("All");
+
+  const { history } = useHistory();
+  const { playlists } = usePlaylists();
+  const playSong = usePlayerStore((s) => s.playSong);
+  const currentSong = usePlayerStore((s) => s.currentSong);
 
   useEffect(() => {
-    async function fetchTrending() {
+    let cancelled = false;
+    (async () => {
       try {
         const res = await fetch("/api/saavn/trending");
         const json = await res.json();
-        if (json.success) {
+        if (!cancelled && json.success) {
           setData(json.data);
         }
       } catch {
         // fail silently
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const jumpBackIn: JumpItem[] = useMemo(() => {
+    const items: JumpItem[] = [];
+    // Pinned / default playlist first
+    const pinned: Playlist | undefined = playlists.find((p) => p.isDefault);
+    if (pinned) {
+      items.push({
+        id: `playlist-${pinned.id}`,
+        href: `/playlist/${pinned.id}`,
+        title: pinned.name,
+        fallback: (
+          <div className="w-full h-full bg-gradient-to-br from-accent-secondary to-accent-primary flex items-center justify-center">
+            <Heart className="w-6 h-6 text-white fill-white" />
+          </div>
+        ),
+      });
+    }
+    // Most-recent history songs
+    const seen = new Set<string>();
+    for (const entry of history) {
+      if (items.length >= 8) break;
+      if (seen.has(entry.song.id)) continue;
+      seen.add(entry.song.id);
+      if (entry.song.album && entry.song.albumId) {
+        items.push({
+          id: `album-${entry.song.albumId}`,
+          href: `/album/${entry.song.albumId}`,
+          title: entry.song.album,
+          image: entry.song.image,
+        });
+      } else {
+        items.push({
+          id: `song-${entry.song.id}`,
+          href: `/song/${entry.song.id}`,
+          title: entry.song.title,
+          image: entry.song.image,
+        });
       }
     }
-    fetchTrending();
-  }, []);
+    // Top of remaining custom playlists
+    const nonDefault = playlists.filter((p) => !p.isDefault);
+    for (const p of nonDefault) {
+      if (items.length >= 8) break;
+      items.push({
+        id: `playlist-${p.id}`,
+        href: `/playlist/${p.id}`,
+        title: p.name,
+        image: p.songs[0]?.image,
+      });
+    }
+    return items.slice(0, 8);
+  }, [history, playlists]);
+
+  const handleQuickPlay = (song: Song, queue: Song[], index: number) => {
+    playSong(song, queue, index);
+  };
 
   return (
     <div className="p-6">
-      {/* Mobile search bar */}
-      <div className="md:hidden mb-6">
-        <SearchBar />
-      </div>
-
-      {/* Header */}
-      <div className="mb-8">
+      {/* Greeting + chips */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-5">
+          {(["All", "Music", "Podcasts"] as const).map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setChip(c)}
+              className={cn(
+                "px-4 py-1.5 rounded-full text-sm font-medium transition-colors",
+                chip === c
+                  ? "bg-text-primary text-bg-primary"
+                  : "bg-bg-tertiary text-text-primary hover:bg-bg-hover"
+              )}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
         <h1 className="font-heading text-2xl md:text-3xl font-bold text-text-primary">
           {getGreeting()}
         </h1>
-        <p className="text-text-secondary text-sm mt-1">
-          What do you want to listen to?
-        </p>
       </div>
 
-      {/* Desktop search bar */}
-      <div className="hidden md:block mb-8">
-        <SearchBar />
-      </div>
+      {/* Jump back in — 2-col rectangular tiles */}
+      {jumpBackIn.length > 0 && (
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 mb-10">
+          {jumpBackIn.map((item) => (
+            <Link
+              key={item.id}
+              href={item.href}
+              className="group flex items-center gap-3 bg-bg-hover/60 hover:bg-bg-pressed rounded-md overflow-hidden transition-colors"
+            >
+              <div className="relative w-16 h-16 flex-shrink-0 bg-bg-tertiary">
+                {item.image ? (
+                  <Image
+                    src={item.image}
+                    alt={item.title}
+                    fill
+                    className="object-cover"
+                    sizes="64px"
+                  />
+                ) : (
+                  item.fallback ?? (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Music2 className="w-5 h-5 text-text-muted" />
+                    </div>
+                  )
+                )}
+              </div>
+              <span className="text-sm font-semibold text-text-primary truncate pr-4">
+                {item.title}
+              </span>
+              <span className="ml-auto mr-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="w-10 h-10 rounded-full bg-accent-primary flex items-center justify-center shadow-lg">
+                  <Play className="w-4 h-4 text-bg-primary fill-current ml-0.5" />
+                </span>
+              </span>
+            </Link>
+          ))}
+        </section>
+      )}
 
-      {/* Loading */}
       {loading && (
         <div className="space-y-8">
           <section>
-            <div className="h-6 w-40 bg-bg-tertiary rounded animate-pulse mb-4" />
+            <div className="h-6 w-48 bg-bg-tertiary rounded animate-pulse mb-4" />
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {Array.from({ length: 5 }).map((_, i) => (
                 <SongCardSkeleton key={i} />
@@ -79,95 +198,124 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Content */}
       {!loading && data && (
         <div className="space-y-10">
-          {/* Trending Songs */}
+          {/* Today's biggest hits */}
           {data.trending.length > 0 && (
-            <section>
-              <h2 className="font-heading text-lg font-semibold text-text-primary mb-4">
-                Trending Now
-              </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                {data.trending.slice(0, 10).map((song, i) => (
-                  <SongCard key={song.id} song={song} queue={data.trending} index={i} />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* New Albums */}
-          {data.albums.length > 0 && (
-            <section>
-              <h2 className="font-heading text-lg font-semibold text-text-primary mb-4">
-                New Releases
-              </h2>
-              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                {data.albums.slice(0, 12).map((album) => (
-                  <Link
-                    key={album.id}
-                    href={`/album/${album.id}`}
-                    className="group flex-shrink-0 w-36 sm:w-40 flex flex-col gap-2 p-3 rounded-lg bg-bg-secondary hover:bg-bg-tertiary transition-colors"
+            <Rail title="Today's biggest hits" seeAllHref="/search?q=trending">
+              {data.trending.slice(0, 12).map((song, i) => {
+                const isCurrent = currentSong?.id === song.id;
+                return (
+                  <div
+                    key={song.id}
+                    onClick={() =>
+                      handleQuickPlay(song, data.trending, i)
+                    }
+                    className="group cursor-pointer flex-shrink-0 w-40 p-3 rounded-lg bg-bg-tertiary/70 hover:bg-bg-hover transition-colors"
                   >
-                    <div className="relative aspect-square w-full rounded-md overflow-hidden bg-bg-tertiary">
-                      {album.image && (
+                    <div className="relative aspect-square rounded-md overflow-hidden bg-bg-tertiary mb-3">
+                      {song.image && (
                         <Image
-                          src={album.image}
-                          alt={album.name}
+                          src={song.image}
+                          alt={song.title}
                           fill
                           className="object-cover"
                           sizes="160px"
                         />
                       )}
+                      <span
+                        className={cn(
+                          "absolute bottom-2 right-2 w-10 h-10 rounded-full bg-accent-primary flex items-center justify-center shadow-lg transition-all",
+                          "opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0"
+                        )}
+                      >
+                        <Play className="w-4 h-4 text-bg-primary fill-current ml-0.5" />
+                      </span>
                     </div>
-                    <p className="text-sm font-medium text-text-primary truncate">
-                      {album.name}
+                    <p
+                      className={cn(
+                        "text-sm font-medium truncate",
+                        isCurrent ? "text-accent-primary" : "text-text-primary"
+                      )}
+                    >
+                      {song.title}
                     </p>
-                    <p className="text-xs text-text-secondary truncate">
-                      {album.artist}
+                    <p className="text-xs text-text-secondary truncate mt-0.5">
+                      {song.artist}
                     </p>
-                  </Link>
-                ))}
-              </div>
-            </section>
+                  </div>
+                );
+              })}
+            </Rail>
+          )}
+
+          {/* New Releases */}
+          {data.albums.length > 0 && (
+            <Rail title="New releases for you" seeAllHref="/search?q=new">
+              {data.albums.slice(0, 12).map((album) => (
+                <Link
+                  key={album.id}
+                  href={`/album/${album.id}`}
+                  className="group flex-shrink-0 w-40 p-3 rounded-lg bg-bg-tertiary/70 hover:bg-bg-hover transition-colors"
+                >
+                  <div className="relative aspect-square rounded-md overflow-hidden bg-bg-tertiary mb-3">
+                    {album.image && (
+                      <Image
+                        src={album.image}
+                        alt={album.name}
+                        fill
+                        className="object-cover"
+                        sizes="160px"
+                      />
+                    )}
+                    <span className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-accent-primary flex items-center justify-center shadow-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all">
+                      <Play className="w-4 h-4 text-bg-primary fill-current ml-0.5" />
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium text-text-primary truncate">
+                    {album.name}
+                  </p>
+                  <p className="text-xs text-text-secondary truncate mt-0.5">
+                    {album.artist}
+                  </p>
+                </Link>
+              ))}
+            </Rail>
           )}
 
           {/* Featured Playlists */}
           {data.playlists.length > 0 && (
-            <section>
-              <h2 className="font-heading text-lg font-semibold text-text-primary mb-4">
-                Featured Playlists
-              </h2>
-              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                {data.playlists.slice(0, 12).map((playlist) => (
-                  <Link
-                    key={playlist.id}
-                    href={`/playlist/${playlist.id}`}
-                    className="group flex-shrink-0 w-36 sm:w-40 flex flex-col gap-2 p-3 rounded-lg bg-bg-secondary hover:bg-bg-tertiary transition-colors"
-                  >
-                    <div className="relative aspect-square w-full rounded-md overflow-hidden bg-bg-tertiary">
-                      {playlist.image && (
-                        <Image
-                          src={playlist.image}
-                          alt={playlist.name}
-                          fill
-                          className="object-cover"
-                          sizes="160px"
-                        />
-                      )}
-                    </div>
-                    <p className="text-sm font-medium text-text-primary truncate">
-                      {playlist.name}
-                    </p>
-                  </Link>
-                ))}
-              </div>
-            </section>
+            <Rail title="Featured playlists" seeAllHref="/search?q=playlists">
+              {data.playlists.slice(0, 12).map((playlist) => (
+                <Link
+                  key={playlist.id}
+                  href={`/playlist/${playlist.id}`}
+                  className="group flex-shrink-0 w-40 p-3 rounded-lg bg-bg-tertiary/70 hover:bg-bg-hover transition-colors"
+                >
+                  <div className="relative aspect-square rounded-md overflow-hidden bg-bg-tertiary mb-3">
+                    {playlist.image && (
+                      <Image
+                        src={playlist.image}
+                        alt={playlist.name}
+                        fill
+                        className="object-cover"
+                        sizes="160px"
+                      />
+                    )}
+                    <span className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-accent-primary flex items-center justify-center shadow-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all">
+                      <Play className="w-4 h-4 text-bg-primary fill-current ml-0.5" />
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium text-text-primary truncate">
+                    {playlist.name}
+                  </p>
+                </Link>
+              ))}
+            </Rail>
           )}
         </div>
       )}
 
-      {/* Empty / Error state */}
       {!loading && !data && (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="w-20 h-20 rounded-full bg-bg-secondary flex items-center justify-center mb-4">
@@ -182,5 +330,34 @@ export default function HomePage() {
         </div>
       )}
     </div>
+  );
+}
+
+interface RailProps {
+  title: string;
+  seeAllHref?: string;
+  children: React.ReactNode;
+}
+
+function Rail({ title, seeAllHref, children }: RailProps) {
+  return (
+    <section>
+      <div className="flex items-end justify-between mb-4">
+        <h2 className="font-heading text-xl md:text-2xl font-bold text-text-primary hover:underline cursor-pointer">
+          {title}
+        </h2>
+        {seeAllHref && (
+          <Link
+            href={seeAllHref}
+            className="text-xs font-semibold text-text-secondary hover:underline"
+          >
+            Show all
+          </Link>
+        )}
+      </div>
+      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+        {children}
+      </div>
+    </section>
   );
 }
