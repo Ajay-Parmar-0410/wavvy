@@ -15,15 +15,15 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePlaylists } from "@/hooks/usePlaylist";
-import { useMobileUiStore } from "@/stores/mobileUiStore";
+import CreatePlaylistModal from "@/components/playlist/CreatePlaylistModal";
 
 const FILTER_CHIPS = ["Playlists", "Artists", "Albums"] as const;
 type Filter = (typeof FILTER_CHIPS)[number];
 
 export default function LibrarySidebar() {
   const pathname = usePathname();
-  const { playlists } = usePlaylists();
-  const openCreateSheet = useMobileUiStore((s) => s.openCreateSheet);
+  const { playlists, createPlaylist } = usePlaylists();
+  const [showCreate, setShowCreate] = useState(false);
   const [activeFilter, setActiveFilter] = useState<Filter | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -52,7 +52,7 @@ export default function LibrarySidebar() {
           </button>
           <button
             type="button"
-            onClick={openCreateSheet}
+            onClick={() => setShowCreate(true)}
             aria-label="Create playlist"
             className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
           >
@@ -201,6 +201,12 @@ export default function LibrarySidebar() {
           })}
         </nav>
       </aside>
+
+      <CreatePlaylistModal
+        isOpen={showCreate}
+        onClose={() => setShowCreate(false)}
+        onCreate={createPlaylist}
+      />
     </>
   );
 }
