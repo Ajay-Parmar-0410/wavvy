@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, Music, Check } from "lucide-react";
 import { db } from "@/lib/db";
 import { generateId } from "@/lib/utils";
+import { enrichSong } from "@/lib/enrichSong";
 import type { Playlist, Song } from "@/types";
 
 interface AddToPlaylistModalProps {
@@ -40,8 +41,9 @@ export default function AddToPlaylistModal({
     const exists = playlist.songs.some((s) => s.id === song.id);
     if (exists) return;
 
+    const fullSong = await enrichSong(song);
     await db.playlists.update(playlistId, {
-      songs: [...playlist.songs, song],
+      songs: [...playlist.songs, fullSong],
       updatedAt: Date.now(),
     });
     setAddedTo((prev) => { const next = new Set(prev); next.add(playlistId); return next; });
@@ -49,10 +51,11 @@ export default function AddToPlaylistModal({
 
   const handleCreateAndAdd = async () => {
     if (!song || !newName.trim()) return;
+    const fullSong = await enrichSong(song);
     const playlist: Playlist = {
       id: generateId(),
       name: newName.trim(),
-      songs: [song],
+      songs: [fullSong],
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };

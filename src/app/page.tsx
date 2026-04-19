@@ -5,11 +5,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { Music2, Play, Heart } from "lucide-react";
 import { usePlayerStore } from "@/stores/playerStore";
-import { useHistory } from "@/hooks/useHistory";
 import { usePlaylists } from "@/hooks/usePlaylist";
 import { SongCardSkeleton } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/utils";
-import type { Song, Album, Playlist } from "@/types";
+import type { Song, Album } from "@/types";
 
 interface TrendingData {
   trending: Song[];
@@ -39,7 +38,6 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [chip, setChip] = useState<Chip>("All");
 
-  const { history } = useHistory();
   const { playlists } = usePlaylists();
   const playSong = usePlayerStore((s) => s.playSong);
   const currentSong = usePlayerStore((s) => s.currentSong);
@@ -64,11 +62,13 @@ export default function HomePage() {
     };
   }, []);
 
+  // Spotify-style "Your shortcuts": only the user's own playlists.
+  // Pinned Liked Songs first (only if non-empty), then custom playlists by
+  // most-recently-updated (already sorted by usePlaylists).
   const jumpBackIn: JumpItem[] = useMemo(() => {
     const items: JumpItem[] = [];
-    // Pinned / default playlist first
-    const pinned: Playlist | undefined = playlists.find((p) => p.isDefault);
-    if (pinned) {
+    const pinned = playlists.find((p) => p.isDefault);
+    if (pinned && pinned.songs.length > 0) {
       items.push({
         id: `playlist-${pinned.id}`,
         href: `/playlist/${pinned.id}`,
@@ -80,31 +80,8 @@ export default function HomePage() {
         ),
       });
     }
-    // Most-recent history songs
-    const seen = new Set<string>();
-    for (const entry of history) {
-      if (items.length >= 8) break;
-      if (seen.has(entry.song.id)) continue;
-      seen.add(entry.song.id);
-      if (entry.song.album && entry.song.albumId) {
-        items.push({
-          id: `album-${entry.song.albumId}`,
-          href: `/album/${entry.song.albumId}`,
-          title: entry.song.album,
-          image: entry.song.image,
-        });
-      } else {
-        items.push({
-          id: `song-${entry.song.id}`,
-          href: `/song/${entry.song.id}`,
-          title: entry.song.title,
-          image: entry.song.image,
-        });
-      }
-    }
-    // Top of remaining custom playlists
-    const nonDefault = playlists.filter((p) => !p.isDefault);
-    for (const p of nonDefault) {
+    for (const p of playlists) {
+      if (p.isDefault) continue;
       if (items.length >= 8) break;
       items.push({
         id: `playlist-${p.id}`,
@@ -113,8 +90,8 @@ export default function HomePage() {
         image: p.songs[0]?.image,
       });
     }
-    return items.slice(0, 8);
-  }, [history, playlists]);
+    return items;
+  }, [playlists]);
 
   const handleQuickPlay = (song: Song, queue: Song[], index: number) => {
     playSong(song, queue, index);
@@ -146,36 +123,39 @@ export default function HomePage() {
         </h1>
       </div>
 
-      {/* Jump back in — 2-col rectangular tiles */}
+      {/* Your shortcuts — 2-col (matches Spotify) */}
       {jumpBackIn.length > 0 && (
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 mb-10">
+        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 mb-10">
           {jumpBackIn.map((item) => (
             <Link
               key={item.id}
               href={item.href}
-              className="group flex items-center gap-3 bg-bg-hover/60 hover:bg-bg-pressed rounded-md overflow-hidden transition-colors"
+              className="group flex items-center gap-3 bg-bg-hover/60 hover:bg-bg-pressed rounded-md overflow-hidden transition-colors min-w-0"
             >
-              <div className="relative w-16 h-16 flex-shrink-0 bg-bg-tertiary">
+              <div className="relative w-20 h-20 flex-shrink-0 bg-bg-tertiary">
                 {item.image ? (
                   <Image
                     src={item.image}
                     alt={item.title}
                     fill
                     className="object-cover"
-                    sizes="64px"
+                    sizes="80px"
                   />
                 ) : (
                   item.fallback ?? (
                     <div className="w-full h-full flex items-center justify-center">
-                      <Music2 className="w-5 h-5 text-text-muted" />
+                      <Music2 className="w-6 h-6 text-text-muted" />
                     </div>
                   )
                 )}
               </div>
-              <span className="text-sm font-semibold text-text-primary truncate pr-4">
+              <span
+                className="flex-1 min-w-0 text-sm font-semibold text-text-primary pr-2 line-clamp-2 break-words"
+                title={item.title}
+              >
                 {item.title}
               </span>
-              <span className="ml-auto mr-3 opacity-0 group-hover:opacity-100 transition-opacity">
+              <span className="mr-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                 <span className="w-10 h-10 rounded-full bg-accent-primary flex items-center justify-center shadow-lg">
                   <Play className="w-4 h-4 text-bg-primary fill-current ml-0.5" />
                 </span>

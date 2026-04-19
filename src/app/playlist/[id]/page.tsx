@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Music, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/db";
+import { enrichSong } from "@/lib/enrichSong";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useLikedSongs } from "@/hooks/usePlaylist";
 import SongRow from "@/components/song/SongRow";
@@ -44,6 +45,25 @@ export default function PlaylistPage({ params }: { params: { id: string } }) {
     if (local) {
       setPlaylist(local);
       setLoading(false);
+
+      // Self-heal: songs added from autocomplete may lack duration/streamUrl.
+      // Hydrate in the background and persist once for future loads.
+      const stale = local.songs.filter(
+        (s) => (!s.duration || s.duration <= 0 || !s.streamUrl) && s.source === "saavn"
+      );
+      if (stale.length > 0) {
+        Promise.all(local.songs.map((s) => enrichSong(s))).then(async (enriched) => {
+          const changed = enriched.some(
+            (s, i) => s.duration !== local.songs[i].duration || s.streamUrl !== local.songs[i].streamUrl
+          );
+          if (!changed) return;
+          await db.playlists.update(params.id, {
+            songs: enriched,
+            updatedAt: Date.now(),
+          });
+          setPlaylist((cur) => (cur ? { ...cur, songs: enriched } : cur));
+        });
+      }
       return;
     }
 

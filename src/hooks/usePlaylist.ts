@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { db } from "@/lib/db";
 import { generateId } from "@/lib/utils";
+import { enrichSong } from "@/lib/enrichSong";
 import type { Playlist, Song } from "@/types";
 
 export function usePlaylists() {
@@ -60,7 +61,8 @@ export function usePlaylists() {
       if (!playlist) return;
       const exists = playlist.songs.some((s) => s.id === song.id);
       if (exists) return;
-      const updatedSongs = [...playlist.songs, song];
+      const fullSong = await enrichSong(song);
+      const updatedSongs = [...playlist.songs, fullSong];
       await db.playlists.update(playlistId, {
         songs: updatedSongs,
         updatedAt: Date.now(),
@@ -120,7 +122,7 @@ export function useLikedSongs() {
       const isLiked = liked.songs.some((s) => s.id === song.id);
       const updatedSongs = isLiked
         ? liked.songs.filter((s) => s.id !== song.id)
-        : [...liked.songs, song];
+        : [...liked.songs, await enrichSong(song)];
 
       await db.playlists.update("liked-songs", {
         songs: updatedSongs,
