@@ -223,21 +223,42 @@ export async function getArtistById(id: string): Promise<{
   artist: Artist;
   topSongs: Song[];
   topAlbums: Album[];
+  singles: Album[];
+  similarArtists: Artist[];
 } | null> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = (await fetchSaavn("artist.getArtistPageDetails", {
     artistId: id,
     n_song: "20",
-    n_album: "10",
+    n_album: "20",
     page: "1",
     category: "popularity",
     sort_order: "desc",
   })) as any;
-  if (!data || !data.artistId) return null;
+
+  // JioSaavn returns the artist node with either `artistId` or `id` depending
+  // on the variant. Some responses wrap a `name` without either when the id is
+  // a slug — fall back to the `name` presence check so slugs don't 404.
+  const looksLikeArtist =
+    !!data && (data.artistId || data.id || data.name || data.title);
+  if (!looksLikeArtist) return null;
+
+  const artistBase = {
+    ...data,
+    id: data.artistId || data.id || id,
+  };
+
+  // Singles / dedicated playlists come back under different keys depending on
+  // the API shape — normalise here so the UI can rely on a single structure.
+  const singlesRaw = data.singles || data.topSingles || [];
+  const similarRaw = data.similarArtists || data.similar_artists || [];
+
   return {
-    artist: parseArtist(data),
-    topSongs: (data.topSongs || []).map(parseSong),
-    topAlbums: (data.topAlbums || []).map(parseAlbum),
+    artist: parseArtist(artistBase),
+    topSongs: (data.topSongs || data.top_songs || []).map(parseSong),
+    topAlbums: (data.topAlbums || data.top_albums || []).map(parseAlbum),
+    singles: singlesRaw.map(parseAlbum),
+    similarArtists: similarRaw.map(parseArtist),
   };
 }
 

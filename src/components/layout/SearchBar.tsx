@@ -3,9 +3,10 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Search, X, Loader2 } from "lucide-react";
+import { Search, X, Loader2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePlayerStore } from "@/stores/playerStore";
+import AddToPlaylistModal from "@/components/playlist/AddToPlaylistModal";
 import type { Song, Album, Artist } from "@/types";
 
 interface Suggestions {
@@ -23,6 +24,7 @@ export default function SearchBar() {
   const [suggestions, setSuggestions] = useState<Suggestions>(EMPTY);
   const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [addToPlaylistSong, setAddToPlaylistSong] = useState<Song | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -181,11 +183,23 @@ export default function SearchBar() {
                 Songs
               </div>
               {suggestions.songs.map((song) => (
-                <button
+                <div
                   key={song.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => handlePickSong(song)}
-                  className="w-full flex items-center gap-3 px-3 py-2 hover:bg-bg-tertiary transition-colors text-left"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && e.shiftKey) {
+                      e.preventDefault();
+                      setAddToPlaylistSong(song);
+                      return;
+                    }
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handlePickSong(song);
+                    }
+                  }}
+                  className="group w-full flex items-center gap-3 px-3 py-2 hover:bg-bg-tertiary transition-colors cursor-pointer"
                 >
                   <div className="relative w-9 h-9 rounded overflow-hidden bg-bg-tertiary flex-shrink-0">
                     {song.image && (
@@ -198,7 +212,7 @@ export default function SearchBar() {
                       />
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 text-left">
                     <p className="text-sm text-text-primary truncate">
                       {song.title}
                     </p>
@@ -206,7 +220,20 @@ export default function SearchBar() {
                       {song.artist}
                     </p>
                   </div>
-                </button>
+                  {/* Plan2 §2.1 / feedback #1 — inline add-to-playlist. Does
+                     NOT dismiss the dropdown (per user spec). */}
+                  <button
+                    type="button"
+                    aria-label={`Add "${song.title}" to playlist`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAddToPlaylistSong(song);
+                    }}
+                    className="p-1.5 rounded-full text-text-muted hover:text-text-primary opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity flex-shrink-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -292,6 +319,12 @@ export default function SearchBar() {
           )}
         </div>
       )}
+
+      <AddToPlaylistModal
+        isOpen={!!addToPlaylistSong}
+        song={addToPlaylistSong}
+        onClose={() => setAddToPlaylistSong(null)}
+      />
     </div>
   );
 }

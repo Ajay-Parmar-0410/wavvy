@@ -18,7 +18,10 @@ export default function ArtistPage({ params }: { params: { id: string } }) {
   const [artist, setArtist] = useState<Artist | null>(null);
   const [topSongs, setTopSongs] = useState<Song[]>([]);
   const [topAlbums, setTopAlbums] = useState<Album[]>([]);
+  const [singles, setSingles] = useState<Album[]>([]);
+  const [similarArtists, setSimilarArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     song: Song;
     position: { x: number; y: number };
@@ -26,18 +29,26 @@ export default function ArtistPage({ params }: { params: { id: string } }) {
   const [addToPlaylistSong, setAddToPlaylistSong] = useState<Song | null>(null);
 
   const loadArtist = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
       const res = await fetch(`/api/saavn/artist/${params.id}`);
       const json = await res.json();
-      if (json.success) {
-        setArtist(json.data.artist);
-        setTopSongs(json.data.topSongs || []);
-        setTopAlbums(json.data.topAlbums || []);
+      if (!res.ok || !json.success) {
+        setError(json.error || `Artist lookup failed (${res.status})`);
+        setLoading(false);
+        return;
       }
-    } catch {
-      // fail silently
+      setArtist(json.data.artist);
+      setTopSongs(json.data.topSongs || []);
+      setTopAlbums(json.data.topAlbums || []);
+      setSingles(json.data.singles || []);
+      setSimilarArtists(json.data.similarArtists || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [params.id]);
 
   useEffect(() => {
@@ -74,11 +85,19 @@ export default function ArtistPage({ params }: { params: { id: string } }) {
     );
   }
 
-  if (!artist) {
+  if (error || !artist) {
     return (
       <div className="p-6 flex flex-col items-center justify-center py-20">
         <User className="w-12 h-12 text-text-muted mb-3" />
-        <p className="text-text-muted">Artist not found</p>
+        <p className="text-text-muted">
+          {error ? `Couldn\u2019t load artist: ${error}` : "Artist not found"}
+        </p>
+        <button
+          onClick={loadArtist}
+          className="mt-4 px-4 py-2 rounded-full border border-border text-sm text-text-primary hover:bg-bg-secondary transition-colors"
+        >
+          Try again
+        </button>
       </div>
     );
   }
@@ -145,7 +164,7 @@ export default function ArtistPage({ params }: { params: { id: string } }) {
 
       {/* Top Albums */}
       {topAlbums.length > 0 && (
-        <section>
+        <section className="mb-10">
           <h2 className="font-heading text-xl font-bold text-text-primary mb-4">
             Albums
           </h2>
@@ -180,6 +199,84 @@ export default function ArtistPage({ params }: { params: { id: string } }) {
                 {album.year && (
                   <p className="text-xs text-text-muted mt-0.5">{album.year}</p>
                 )}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Singles */}
+      {singles.length > 0 && (
+        <section className="mb-10">
+          <h2 className="font-heading text-xl font-bold text-text-primary mb-4">
+            Singles
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {singles.map((album) => (
+              <Link
+                key={album.id}
+                href={`/album/${album.id}`}
+                className="group p-3 rounded-xl bg-bg-secondary hover:bg-bg-tertiary transition-colors"
+              >
+                <div className="relative aspect-square rounded-lg overflow-hidden bg-bg-tertiary mb-3">
+                  {album.imageHq ? (
+                    <Image
+                      src={album.imageHq}
+                      alt={album.name}
+                      fill
+                      className="object-cover"
+                      sizes="200px"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <User className="w-8 h-8 text-text-muted" />
+                    </div>
+                  )}
+                </div>
+                <p className="text-sm font-medium text-text-primary truncate">
+                  {album.name}
+                </p>
+                {album.year && (
+                  <p className="text-xs text-text-muted mt-0.5">{album.year}</p>
+                )}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Similar Artists */}
+      {similarArtists.length > 0 && (
+        <section>
+          <h2 className="font-heading text-xl font-bold text-text-primary mb-4">
+            Fans Also Like
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {similarArtists.map((a) => (
+              <Link
+                key={a.id}
+                href={`/artist/${a.id}`}
+                className="group p-3 rounded-xl bg-bg-secondary hover:bg-bg-tertiary transition-colors text-center"
+              >
+                <div className="relative aspect-square rounded-full overflow-hidden bg-bg-tertiary mb-3 mx-auto">
+                  {a.imageHq ? (
+                    <Image
+                      src={a.imageHq}
+                      alt={a.name}
+                      fill
+                      className="object-cover"
+                      sizes="200px"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <User className="w-8 h-8 text-text-muted" />
+                    </div>
+                  )}
+                </div>
+                <p className="text-sm font-medium text-text-primary truncate">
+                  {a.name}
+                </p>
+                <p className="text-xs text-text-muted mt-0.5">Artist</p>
               </Link>
             ))}
           </div>
