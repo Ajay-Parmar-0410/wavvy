@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import {
   Play,
@@ -11,9 +12,14 @@ import {
   Repeat1,
   ListMusic,
   ChevronUp,
+  Heart,
+  Plus,
 } from "lucide-react";
 import { usePlayerStore } from "@/stores/playerStore";
+import { useLikedSongs } from "@/hooks/usePlaylist";
+import { toast } from "@/stores/toastStore";
 import { cn } from "@/lib/utils";
+import AddToPlaylistModal from "@/components/playlist/AddToPlaylistModal";
 import AudioEngine from "./AudioEngine";
 import SeekBar from "./SeekBar";
 import VolumeControl from "./VolumeControl";
@@ -32,7 +38,17 @@ export default function PlayerBar() {
   const toggleQueue = usePlayerStore((s) => s.toggleQueue);
   const isQueueOpen = usePlayerStore((s) => s.isQueueOpen);
 
+  const { isLiked, toggleLike } = useLikedSongs();
+  const [addToPlaylistOpen, setAddToPlaylistOpen] = useState(false);
+
   if (!currentSong) return null;
+
+  const songIsLiked = isLiked(currentSong.id);
+
+  const handleToggleLike = () => {
+    toggleLike(currentSong);
+    toast.success(songIsLiked ? "Removed from Liked Songs" : "Added to Liked Songs");
+  };
 
   return (
     <>
@@ -52,31 +68,57 @@ export default function PlayerBar() {
 
         <div className="flex items-center h-full px-4 gap-4">
           {/* Song info (left) */}
-          <button
-            onClick={toggleExpandedPlayer}
-            className="flex items-center gap-3 min-w-0 flex-1 md:flex-none md:w-[280px] text-left"
-          >
-            <div className="relative w-12 h-12 rounded-md overflow-hidden bg-bg-tertiary flex-shrink-0">
-              {currentSong.image && (
-                <Image
-                  src={currentSong.image}
-                  alt={currentSong.title}
-                  fill
-                  className="object-cover"
-                  sizes="48px"
-                />
+          <div className="flex items-center gap-2 min-w-0 flex-1 md:flex-none md:w-[340px]">
+            <button
+              onClick={toggleExpandedPlayer}
+              className="flex items-center gap-3 min-w-0 flex-1 text-left"
+            >
+              <div className="relative w-12 h-12 rounded-md overflow-hidden bg-bg-tertiary flex-shrink-0">
+                {currentSong.image && (
+                  <Image
+                    src={currentSong.image}
+                    alt={currentSong.title}
+                    fill
+                    className="object-cover"
+                    sizes="48px"
+                  />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-text-primary truncate">
+                  {currentSong.title}
+                </p>
+                <p className="text-xs text-text-secondary truncate">
+                  {currentSong.artist}
+                </p>
+              </div>
+              <ChevronUp className="w-5 h-5 text-text-muted md:hidden flex-shrink-0" />
+            </button>
+
+            {/* Like + Add-to-playlist (plan2 §2.4 — fixes feedback #4) */}
+            <button
+              onClick={handleToggleLike}
+              aria-label={songIsLiked ? "Remove from Liked Songs" : "Add to Liked Songs"}
+              aria-pressed={songIsLiked}
+              className={cn(
+                "p-1.5 rounded-full transition-colors flex-shrink-0",
+                songIsLiked
+                  ? "text-accent-primary"
+                  : "text-text-muted hover:text-text-primary"
               )}
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-text-primary truncate">
-                {currentSong.title}
-              </p>
-              <p className="text-xs text-text-secondary truncate">
-                {currentSong.artist}
-              </p>
-            </div>
-            <ChevronUp className="w-5 h-5 text-text-muted md:hidden flex-shrink-0" />
-          </button>
+            >
+              <Heart
+                className={cn("w-4 h-4", songIsLiked && "fill-current")}
+              />
+            </button>
+            <button
+              onClick={() => setAddToPlaylistOpen(true)}
+              aria-label="Add to playlist"
+              className="hidden md:block p-1.5 rounded-full text-text-muted hover:text-text-primary transition-colors flex-shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
 
           {/* Controls (center — desktop) */}
           <div className="hidden md:flex flex-col items-center flex-1 gap-1 max-w-[600px]">
@@ -176,6 +218,12 @@ export default function PlayerBar() {
           </div>
         </div>
       </div>
+
+      <AddToPlaylistModal
+        isOpen={addToPlaylistOpen}
+        song={currentSong}
+        onClose={() => setAddToPlaylistOpen(false)}
+      />
     </>
   );
 }

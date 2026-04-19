@@ -67,7 +67,8 @@ function getNextIndex(state: PlayerState): number | null {
   const { queue, queueIndex, shuffle, repeat, shuffledIndices } = state;
   if (queue.length === 0) return null;
 
-  if (repeat === "one") return queueIndex;
+  // Repeat-one is handled at the audio layer via audio.loop. Manual Next
+  // should advance normally (Spotify behavior). See plan2.md §2.2.
 
   if (shuffle) {
     const currentShufflePos = shuffledIndices.indexOf(queueIndex);

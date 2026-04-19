@@ -112,13 +112,26 @@ describe("playerStore", () => {
       expect(usePlayerStore.getState().queueIndex).toBe(0);
     });
 
-    it("replays same song with repeat one", () => {
+    it("advances on manual Next even with repeat=one (auto-loop handled by audio element)", () => {
+      // Plan2 §2.2: repeat=one is now handled via audio.loop in AudioEngine,
+      // not by short-circuiting getNextIndex. Manual Next should move to the
+      // next track (Spotify behavior).
       const songs = [makeSong("1"), makeSong("2")];
       usePlayerStore.getState().playSong(songs[0], songs, 0);
       usePlayerStore.setState({ repeat: "one" });
 
       usePlayerStore.getState().playNext();
-      expect(usePlayerStore.getState().currentSong?.id).toBe("1");
+      expect(usePlayerStore.getState().currentSong?.id).toBe("2");
+      expect(usePlayerStore.getState().queueIndex).toBe(1);
+    });
+
+    it("stops at end of queue with repeat=one (no wrap; loop handled by audio)", () => {
+      const songs = [makeSong("1"), makeSong("2")];
+      usePlayerStore.getState().playSong(songs[1], songs, 1);
+      usePlayerStore.setState({ repeat: "one" });
+
+      usePlayerStore.getState().playNext();
+      expect(usePlayerStore.getState().isPlaying).toBe(false);
     });
   });
 

@@ -14,6 +14,7 @@ export default function AudioEngine() {
   const volume = usePlayerStore((s) => s.volume);
   const isMuted = usePlayerStore((s) => s.isMuted);
   const currentTime = usePlayerStore((s) => s.currentTime);
+  const repeat = usePlayerStore((s) => s.repeat);
 
   const setDuration = usePlayerStore((s) => s.setDuration);
   const setCurrentTime = usePlayerStore((s) => s.setCurrentTime);
@@ -35,7 +36,16 @@ export default function AudioEngine() {
         setCurrentTime(audio.currentTime);
       }
     };
-    const onEnded = () => playNext();
+    const onEnded = () => {
+      // When audio.loop is true the browser does not fire `ended` at all,
+      // so this guard is defensive against environments that miss loop.
+      if (usePlayerStore.getState().repeat === "one") {
+        audio.currentTime = 0;
+        audio.play().catch(() => setIsPlaying(false));
+        return;
+      }
+      playNext();
+    };
     const onError = () => setIsPlaying(false);
 
     audio.addEventListener("loadedmetadata", onLoadedMetadata);
@@ -136,6 +146,15 @@ export default function AudioEngine() {
     if (!audio) return;
     audio.volume = isMuted ? 0 : volume;
   }, [volume, isMuted]);
+
+  // Repeat-one → native audio loop (seamless, zero-JS-in-hot-path).
+  // Plan2 §2.2 — fixes the reference-equality bug where repeat=one stopped
+  // after one play because the store emitted the same currentSong ref.
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.loop = repeat === "one";
+  }, [repeat]);
 
   // Seek — detect store-driven seek (user dragged the seek bar)
   const lastStoreTime = useRef(0);
