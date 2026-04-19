@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import Sidebar from "./Sidebar";
+import TopBar from "./TopBar";
+import LibrarySidebar from "./LibrarySidebar";
+import RightPanel from "./RightPanel";
 import MobileNav from "./MobileNav";
+import MobileTopBar from "./MobileTopBar";
 import PlayerBar from "@/components/player/PlayerBar";
 import ExpandedPlayer from "@/components/player/ExpandedPlayer";
 import QueuePanel from "@/components/player/QueuePanel";
@@ -37,38 +40,50 @@ export default function ClientLayout({
     });
   }, []);
 
+  const bottomPad = currentSong
+    ? "calc(var(--player-height) + var(--mobile-nav-height))"
+    : "var(--mobile-nav-height)";
+
   return (
-    <div className="flex h-screen overflow-hidden">
-      {/* Desktop sidebar */}
-      <Sidebar />
+    <div className="h-screen flex flex-col bg-bg-root overflow-hidden">
+      {/* Desktop top bar (plan2 §3.1) */}
+      <TopBar />
 
-      {/* Main content area */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <div
-          className="flex-1 overflow-y-auto"
-          style={{
-            paddingBottom: currentSong
-              ? "calc(var(--player-height) + var(--mobile-nav-height))"
-              : "var(--mobile-nav-height)",
-          }}
-        >
-          {children}
-        </div>
-      </main>
+      {/* Mobile top bar (keeps search reachable on small screens) */}
+      <MobileTopBar />
 
-      {/* Player bar — shown when a song is active */}
+      {/* Three-column shell (desktop) / single-column (mobile) */}
+      <div
+        className="flex-1 flex md:gap-2 md:px-2 md:pb-2 overflow-hidden"
+        style={{
+          paddingBottom: currentSong ? "var(--player-height)" : undefined,
+        }}
+      >
+        <LibrarySidebar />
+
+        <main className="flex-1 flex flex-col md:rounded-card bg-bg-secondary overflow-hidden">
+          <div
+            className="flex-1 overflow-y-auto"
+            style={{ paddingBottom: bottomPad }}
+          >
+            {children}
+          </div>
+        </main>
+
+        <RightPanel />
+      </div>
+
+      {/* Player bar */}
       {currentSong && <PlayerBar />}
 
-      {/* Expanded player overlay */}
+      {/* Overlays */}
       <ExpandedPlayer />
-
-      {/* Queue slide-out panel */}
       <QueuePanel />
 
-      {/* Mobile bottom navigation */}
+      {/* Mobile nav */}
       <MobileNav />
 
-      {/* Toast notifications */}
+      {/* Toasts */}
       <ToastContainer />
     </div>
   );

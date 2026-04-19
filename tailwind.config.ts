@@ -9,21 +9,27 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Spotify-parity palette (plan2 §3.8).
         bg: {
-          primary: "#0A0A0F",
-          secondary: "#12121A",
-          tertiary: "#1A1A26",
+          root: "#000000",
+          primary: "#000000",
+          secondary: "#121212",
+          tertiary: "#181818",
+          hover: "#282828",
+          pressed: "#3E3E3E",
+          elevated: "#1A1A1A",
         },
         accent: {
-          primary: "#1DF27E",
+          primary: "#1ED760",
+          hover: "#1FDF64",
           secondary: "#6366F1",
         },
         text: {
-          primary: "#F0F0F5",
-          secondary: "#8888A0",
-          muted: "#555566",
+          primary: "#FFFFFF",
+          secondary: "#B3B3B3",
+          muted: "#7A7A7A",
         },
-        border: "#2A2A3A",
+        border: "#2A2A2A",
         danger: "#FF4466",
       },
       fontFamily: {
@@ -32,7 +38,11 @@ const config: Config = {
         mono: ["JetBrains Mono", "monospace"],
       },
       width: {
-        sidebar: "280px",
+        sidebar: "320px",
+        "right-panel": "360px",
+      },
+      borderRadius: {
+        card: "8px",
       },
     },
   },
