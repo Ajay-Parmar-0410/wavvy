@@ -7,6 +7,13 @@ import { Search, X, Loader2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePlayerStore } from "@/stores/playerStore";
 import AddToPlaylistModal from "@/components/playlist/AddToPlaylistModal";
+import {
+  addRecentSearch,
+  recentFromAlbum,
+  recentFromArtist,
+  recentFromQuery,
+  recentFromSong,
+} from "@/lib/recentSearches";
 import type { Song, Album, Artist } from "@/types";
 
 interface Suggestions {
@@ -85,6 +92,7 @@ export default function SearchBar() {
       e.preventDefault();
       const trimmed = query.trim();
       if (trimmed) {
+        addRecentSearch(recentFromQuery(trimmed));
         setShowDropdown(false);
         router.push(`/search?q=${encodeURIComponent(trimmed)}`);
       }
@@ -101,6 +109,7 @@ export default function SearchBar() {
   const handlePickSong = useCallback(
     (song: Song) => {
       setShowDropdown(false);
+      addRecentSearch(recentFromSong(song));
       playSong(song, suggestions.songs, suggestions.songs.indexOf(song));
     },
     [playSong, suggestions.songs]
@@ -109,6 +118,7 @@ export default function SearchBar() {
   const handlePickAlbum = useCallback(
     (album: Album) => {
       setShowDropdown(false);
+      addRecentSearch(recentFromAlbum(album));
       router.push(`/album/${album.id}`);
     },
     [router]
@@ -117,6 +127,7 @@ export default function SearchBar() {
   const handlePickArtist = useCallback(
     (artist: Artist) => {
       setShowDropdown(false);
+      addRecentSearch(recentFromArtist(artist));
       router.push(`/artist/${artist.id}`);
     },
     [router]

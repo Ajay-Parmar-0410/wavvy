@@ -7,6 +7,8 @@ import Image from "next/image";
 import Link from "next/link";
 import SearchBar from "@/components/layout/SearchBar";
 import SongRow from "@/components/song/SongRow";
+import RecentSearches from "@/components/search/RecentSearches";
+import BrowseAllGrid from "@/components/search/BrowseAllGrid";
 import { SongRowSkeleton, SongCardSkeleton } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/utils";
 import type { Song, Album, Artist } from "@/types";
@@ -274,18 +276,11 @@ function SearchContent() {
         </div>
       )}
 
-      {/* Initial state */}
+      {/* Initial state — Spotify-style Recent searches + Browse all */}
       {!searched && (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-16 h-16 rounded-full bg-bg-secondary flex items-center justify-center mb-4">
-            <Search className="w-8 h-8 text-text-muted" />
-          </div>
-          <h2 className="font-heading text-lg font-semibold text-text-primary mb-2">
-            Search for music
-          </h2>
-          <p className="text-text-secondary text-sm max-w-sm">
-            Find songs, albums, and artists from JioSaavn and YouTube.
-          </p>
+        <div className="space-y-8">
+          <RecentSearches />
+          <BrowseAllGrid />
         </div>
       )}
     </div>

@@ -9,8 +9,8 @@ import { getDominantColor } from "@/lib/colors";
 interface PlaylistHeaderProps {
   kind: "Playlist" | "Album" | "Artist";
   title: string;
-  subtitle?: string;
-  meta?: string; // "15 songs · 51 min"
+  subtitle?: React.ReactNode;
+  meta?: React.ReactNode; // "15 songs · 51 min"
   coverUrl?: string;
   coverFallbackClassName?: string; // used for default Liked gradient
   coverFallback?: React.ReactNode;
