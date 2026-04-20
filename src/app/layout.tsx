@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import ClientLayout from "@/components/layout/ClientLayout";
 
@@ -27,14 +28,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-      </head>
-      <body className="font-body antialiased">
-        <ClientLayout>{children}</ClientLayout>
-      </body>
-    </html>
+    <ClerkProvider
+      appearance={{
+        variables: {
+          colorPrimary: "#1DF27E",
+          colorBackground: "#0a0a0a",
+          colorText: "#ffffff",
+        },
+      }}
+    >
+      <html lang="en">
+        <head>
+          <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+          <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        </head>
+        <body className="font-body antialiased">
+          <ClientLayout>{children}</ClientLayout>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

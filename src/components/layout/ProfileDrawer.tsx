@@ -4,6 +4,13 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+  SignedIn,
+  SignedOut,
+  SignInButton,
+  SignOutButton,
+  useUser,
+} from "@clerk/nextjs";
+import {
   X,
   ChevronRight,
   Sparkles,
@@ -13,6 +20,8 @@ import {
   Rss,
   Settings,
   Music2,
+  LogIn,
+  LogOut,
 } from "lucide-react";
 
 interface ProfileDrawerProps {
@@ -29,6 +38,7 @@ interface DrawerItem {
 }
 
 export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
+  const { user } = useUser();
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -69,21 +79,37 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
           >
             {/* Header */}
             <div className="flex items-center justify-between px-5 pt-5 pb-3">
-              <Link
-                href="#"
-                onClick={onClose}
-                className="flex items-center gap-3"
-              >
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-accent-secondary to-accent-primary flex items-center justify-center flex-shrink-0">
-                  <Music2 className="w-6 h-6 text-white" />
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-accent-secondary to-accent-primary flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {user?.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={user.imageUrl}
+                      alt={user.fullName ?? "You"}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Music2 className="w-6 h-6 text-white" />
+                  )}
                 </div>
                 <div className="min-w-0">
                   <p className="text-base font-semibold text-text-primary truncate">
-                    You
+                    <SignedIn>
+                      {user?.fullName ||
+                        user?.username ||
+                        user?.primaryEmailAddress?.emailAddress ||
+                        "You"}
+                    </SignedIn>
+                    <SignedOut>Guest</SignedOut>
                   </p>
-                  <p className="text-xs text-text-secondary">View profile</p>
+                  <p className="text-xs text-text-secondary truncate">
+                    <SignedIn>
+                      {user?.primaryEmailAddress?.emailAddress ?? "Signed in"}
+                    </SignedIn>
+                    <SignedOut>Not signed in</SignedOut>
+                  </p>
                 </div>
-              </Link>
+              </div>
               <button
                 onClick={onClose}
                 className="p-1.5 text-text-muted hover:text-text-primary transition-colors"
@@ -93,16 +119,41 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
               </button>
             </div>
 
-            {/* Account picker row */}
-            <button
-              className="flex items-center justify-between w-full px-5 py-3 mt-1 hover:bg-bg-tertiary/40 transition-colors"
-              type="button"
-            >
-              <span className="text-sm text-text-primary font-medium">
-                Add account
-              </span>
-              <ChevronRight className="w-4 h-4 text-text-muted" />
-            </button>
+            <SignedOut>
+              <SignInButton mode="redirect">
+                <button
+                  onClick={onClose}
+                  className="flex items-center justify-between w-full px-5 py-3 mt-1 hover:bg-bg-tertiary/40 transition-colors"
+                  type="button"
+                >
+                  <span className="flex items-center gap-4">
+                    <LogIn className="w-5 h-5 text-accent-primary" />
+                    <span className="text-sm text-text-primary font-medium">
+                      Sign in
+                    </span>
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-text-muted" />
+                </button>
+              </SignInButton>
+            </SignedOut>
+
+            <SignedIn>
+              <SignOutButton>
+                <button
+                  onClick={onClose}
+                  className="flex items-center justify-between w-full px-5 py-3 mt-1 hover:bg-bg-tertiary/40 transition-colors"
+                  type="button"
+                >
+                  <span className="flex items-center gap-4">
+                    <LogOut className="w-5 h-5 text-text-secondary" />
+                    <span className="text-sm text-text-primary font-medium">
+                      Sign out
+                    </span>
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-text-muted" />
+                </button>
+              </SignOutButton>
+            </SignedIn>
 
             <div className="h-px bg-border mx-5 my-2" />
 
