@@ -6,7 +6,6 @@ import ClientLayout from "@/components/layout/ClientLayout";
 export const metadata: Metadata = {
   title: "Wavvy",
   description: "Personal music player — search, play, and download music",
-  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -41,6 +40,7 @@ export default function RootLayout({
         <head>
           <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
           <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+          <link rel="manifest" href="/manifest.json" />
         </head>
         <body className="font-body antialiased">
           <ClientLayout>{children}</ClientLayout>
