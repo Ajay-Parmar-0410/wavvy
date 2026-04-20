@@ -53,7 +53,7 @@ export default function SearchBar() {
       setLoading(true);
       try {
         const res = await fetch(
-          `/api/saavn/search?q=${encodeURIComponent(trimmed)}`,
+          `/api/saavn/search?q=${encodeURIComponent(trimmed)}&type=autocomplete`,
           { signal: ctrl.signal }
         );
         const json = await res.json();

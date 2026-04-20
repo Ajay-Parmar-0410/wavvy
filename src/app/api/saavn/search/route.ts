@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchSaavn, searchSongs } from "@/lib/saavn";
+import { searchAll, searchSaavn, searchSongs } from "@/lib/saavn";
 
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get("q");
-  const type = request.nextUrl.searchParams.get("type"); // "songs" for songs-only
+  const type = request.nextUrl.searchParams.get("type");
   const page = request.nextUrl.searchParams.get("p") || "1";
 
   if (!q) {
@@ -16,7 +16,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, data: { songs } });
     }
 
-    const results = await searchSaavn(q);
+    if (type === "autocomplete") {
+      const results = await searchSaavn(q);
+      return NextResponse.json({ success: true, data: results });
+    }
+
+    const results = await searchAll(q);
     return NextResponse.json({ success: true, data: results });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Search failed";

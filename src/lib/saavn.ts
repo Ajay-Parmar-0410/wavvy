@@ -162,6 +162,37 @@ export async function searchSongs(query: string, page = 1, limit = 20): Promise<
   return (data.results || []).map(parseSong);
 }
 
+export async function searchAlbumsApi(query: string, limit = 10): Promise<Album[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = (await fetchSaavn("search.getAlbumResults", {
+    q: query,
+    p: "1",
+    n: String(limit),
+  })) as any;
+  return (data.results || []).map(parseAlbum);
+}
+
+export async function searchArtistsApi(query: string, limit = 10): Promise<Artist[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = (await fetchSaavn("search.getArtistResults", {
+    q: query,
+    p: "1",
+    n: String(limit),
+  })) as any;
+  return (data.results || []).map(parseArtist);
+}
+
+// Full relevance-ranked search across all types — used for the search page.
+// The existing searchSaavn() (autocomplete) is kept for instant dropdown hints.
+export async function searchAll(query: string): Promise<SearchResults> {
+  const [songs, albums, artists] = await Promise.all([
+    searchSongs(query, 1, 20),
+    searchAlbumsApi(query, 10),
+    searchArtistsApi(query, 10),
+  ]);
+  return { songs, albums, artists };
+}
+
 export async function getSongById(id: string): Promise<Song | null> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = (await fetchSaavn("song.getDetails", {
