@@ -20,6 +20,8 @@ interface PlaylistHeaderProps {
   disabled?: boolean;
   secondaryActions?: React.ReactNode;
   circular?: boolean; // artist-style cover
+  onOptionsClick?: (rect: DOMRect) => void;
+  showOptions?: boolean;
 }
 
 export default function PlaylistHeader({
@@ -36,6 +38,8 @@ export default function PlaylistHeader({
   disabled,
   secondaryActions,
   circular,
+  onOptionsClick,
+  showOptions = true,
 }: PlaylistHeaderProps) {
   const [dominant, setDominant] = useState<string>("rgb(40, 40, 40)");
 
@@ -125,12 +129,21 @@ export default function PlaylistHeader({
           </button>
         )}
         {secondaryActions}
-        <button
-          aria-label="More"
-          className="w-10 h-10 flex items-center justify-center text-text-secondary hover:text-text-primary transition-colors"
-        >
-          <MoreHorizontal className="w-6 h-6" />
-        </button>
+        {showOptions && (
+          <button
+            aria-label="More options"
+            onClick={(e) => {
+              if (!onOptionsClick) return;
+              const rect = (
+                e.currentTarget as HTMLButtonElement
+              ).getBoundingClientRect();
+              onOptionsClick(rect);
+            }}
+            className="w-10 h-10 flex items-center justify-center text-text-secondary hover:text-text-primary transition-colors"
+          >
+            <MoreHorizontal className="w-6 h-6" />
+          </button>
+        )}
       </div>
     </div>
   );

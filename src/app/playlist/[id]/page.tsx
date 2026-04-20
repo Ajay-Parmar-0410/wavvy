@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Music, Trash2 } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Music, Trash2, GripVertical, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/db";
 import { enrichSong } from "@/lib/enrichSong";
+import { toast } from "@/stores/toastStore";
 import { usePlayerStore } from "@/stores/playerStore";
 import { useLikedSongs } from "@/hooks/usePlaylist";
 import SongRow from "@/components/song/SongRow";
@@ -14,6 +15,10 @@ import PlaylistHeader, {
   LikedCoverFallback,
 } from "@/components/playlist/PlaylistHeader";
 import RecommendedForPlaylist from "@/components/playlist/RecommendedForPlaylist";
+import PlaylistSongSearch from "@/components/playlist/PlaylistSongSearch";
+import PlaylistOptionsMenu from "@/components/playlist/PlaylistOptionsMenu";
+import DeletePlaylistDialog from "@/components/playlist/DeletePlaylistDialog";
+import EditPlaylistDetailsModal from "@/components/playlist/EditPlaylistDetailsModal";
 import type { Playlist, Song } from "@/types";
 
 function formatTotalTime(seconds: number): string {
@@ -40,29 +45,48 @@ export default function PlaylistPage({ params }: { params: { id: string } }) {
   } | null>(null);
   const [addToPlaylistSong, setAddToPlaylistSong] = useState<Song | null>(null);
 
+  const [optionsAnchor, setOptionsAnchor] = useState<DOMRect | null>(null);
+  const [showDelete, setShowDelete] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  // Track the latest persisted order so concurrent drags don't regress state.
+  const latestSongsRef = useRef<Song[]>([]);
+
   const loadPlaylist = useCallback(async () => {
     const local = await db.playlists.get(params.id);
     if (local) {
       setPlaylist(local);
+      latestSongsRef.current = local.songs;
       setLoading(false);
 
-      // Self-heal: songs added from autocomplete may lack duration/streamUrl.
-      // Hydrate in the background and persist once for future loads.
       const stale = local.songs.filter(
-        (s) => (!s.duration || s.duration <= 0 || !s.streamUrl) && s.source === "saavn"
+        (s) =>
+          (!s.duration || s.duration <= 0 || !s.streamUrl) &&
+          s.source === "saavn"
       );
       if (stale.length > 0) {
-        Promise.all(local.songs.map((s) => enrichSong(s))).then(async (enriched) => {
-          const changed = enriched.some(
-            (s, i) => s.duration !== local.songs[i].duration || s.streamUrl !== local.songs[i].streamUrl
-          );
-          if (!changed) return;
-          await db.playlists.update(params.id, {
-            songs: enriched,
-            updatedAt: Date.now(),
-          });
-          setPlaylist((cur) => (cur ? { ...cur, songs: enriched } : cur));
-        });
+        Promise.all(local.songs.map((s) => enrichSong(s))).then(
+          async (enriched) => {
+            const changed = enriched.some(
+              (s, i) =>
+                s.duration !== local.songs[i].duration ||
+                s.streamUrl !== local.songs[i].streamUrl
+            );
+            if (!changed) return;
+            await db.playlists.update(params.id, {
+              songs: enriched,
+              updatedAt: Date.now(),
+            });
+            latestSongsRef.current = enriched;
+            setPlaylist((cur) =>
+              cur ? { ...cur, songs: enriched } : cur
+            );
+          }
+        );
       }
       return;
     }
@@ -116,12 +140,82 @@ export default function PlaylistPage({ params }: { params: { id: string } }) {
       songs: updatedSongs,
       updatedAt: Date.now(),
     });
+    latestSongsRef.current = updatedSongs;
     setPlaylist({ ...playlist, songs: updatedSongs, updatedAt: Date.now() });
   };
 
   const handleContextMenu = (song: Song, e: React.MouseEvent) => {
     e.preventDefault();
     setContextMenu({ song, position: { x: e.clientX, y: e.clientY } });
+  };
+
+  const handleSongAdded = (song: Song) => {
+    setPlaylist((p) =>
+      p
+        ? {
+            ...p,
+            songs: [...p.songs, song],
+            updatedAt: Date.now(),
+          }
+        : p
+    );
+    latestSongsRef.current = [...latestSongsRef.current, song];
+  };
+
+  const handleDelete = async () => {
+    if (!playlist || playlist.isDefault) return;
+    try {
+      await db.playlists.delete(playlist.id);
+      toast.success(`Removed "${playlist.name}"`);
+      router.replace("/library");
+    } catch {
+      toast.error("Couldn't delete playlist");
+    }
+  };
+
+  const handleSaveDetails = async (data: {
+    name: string;
+    description: string;
+  }) => {
+    if (!playlist) return;
+    try {
+      await db.playlists.update(playlist.id, {
+        name: data.name,
+        description: data.description || undefined,
+        updatedAt: Date.now(),
+      });
+      setPlaylist({
+        ...playlist,
+        name: data.name,
+        description: data.description || undefined,
+        updatedAt: Date.now(),
+      });
+      toast.success("Playlist updated");
+    } catch {
+      toast.error("Couldn't update playlist");
+    }
+  };
+
+  const reorderSongs = async (fromId: string, toId: string) => {
+    if (!playlist) return;
+    if (fromId === toId) return;
+    const songs = latestSongsRef.current;
+    const fromIdx = songs.findIndex((s) => s.id === fromId);
+    const toIdx = songs.findIndex((s) => s.id === toId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const next = [...songs];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    latestSongsRef.current = next;
+    setPlaylist({ ...playlist, songs: next, updatedAt: Date.now() });
+    try {
+      await db.playlists.update(playlist.id, {
+        songs: next,
+        updatedAt: Date.now(),
+      });
+    } catch {
+      toast.error("Couldn't save new order");
+    }
   };
 
   if (loading) {
@@ -170,6 +264,12 @@ export default function PlaylistPage({ params }: { params: { id: string } }) {
       ? `${playlist.songs.length} ${songWord} · ${formatTotalTime(totalDuration)}`
       : `${playlist.songs.length} ${songWord}`;
 
+  const existingIds = new Set(playlist.songs.map((s) => s.id));
+  const isUserPlaylist = !playlist.isDefault;
+  // Allow search-for-songs on every user playlist (matches Spotify behavior);
+  // default 'Liked Songs' playlist doesn't expose add-by-search.
+  const canSearchSongs = isUserPlaylist;
+
   return (
     <div className="p-6">
       <PlaylistHeader
@@ -183,19 +283,44 @@ export default function PlaylistPage({ params }: { params: { id: string } }) {
         onPlay={handlePlayAll}
         onShuffle={handleShufflePlay}
         disabled={playlist.songs.length === 0}
+        showOptions={isUserPlaylist}
+        onOptionsClick={(rect) => setOptionsAnchor(rect)}
+        secondaryActions={
+          canSearchSongs && playlist.songs.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setShowSearch((v) => !v)}
+              aria-label="Add songs"
+              className="w-10 h-10 flex items-center justify-center rounded-full border border-border text-text-primary hover:border-text-primary transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+          ) : null
+        }
       />
+
+      {/* Always show search panel for empty user playlists; toggleable otherwise. */}
+      {canSearchSongs && (showSearch || playlist.songs.length === 0) && (
+        <PlaylistSongSearch
+          playlistId={playlist.id}
+          existingSongIds={existingIds}
+          onSongAdded={handleSongAdded}
+          onClose={
+            playlist.songs.length > 0 ? () => setShowSearch(false) : undefined
+          }
+        />
+      )}
 
       {/* Songs */}
       {playlist.songs.length === 0 ? (
-        <div className="flex flex-col items-center py-16 text-center">
-          <Music className="w-12 h-12 text-text-muted mb-3" />
+        <div className="flex flex-col items-center py-10 text-center">
+          <Music className="w-10 h-10 text-text-muted mb-3" />
           <p className="text-text-secondary text-sm">
-            This playlist is empty. Add songs to get started.
+            This playlist is empty. Search above to add songs.
           </p>
         </div>
       ) : (
         <>
-          {/* Column headers — Spotify track table */}
           <div className="hidden md:grid grid-cols-[16px_4fr_2fr_1fr] gap-4 px-4 py-2 border-b border-border text-[11px] uppercase tracking-wider text-text-muted font-semibold mt-8">
             <span>#</span>
             <span>Title</span>
@@ -203,43 +328,80 @@ export default function PlaylistPage({ params }: { params: { id: string } }) {
             <span className="text-right">Duration</span>
           </div>
           <div className="space-y-0.5 mt-2">
-            {playlist.songs.map((song, i) => (
-              <div key={song.id} className="group relative flex items-center">
-                <div className="flex-1">
-                  <SongRow
-                    song={song}
-                    index={i}
-                    showIndex
-                    queue={playlist.songs}
-                    onContextMenu={handleContextMenu}
-                  />
-                </div>
-                <button
-                  onClick={() => handleRemoveSong(song.id)}
-                  className="p-1.5 opacity-0 group-hover:opacity-100 text-text-muted hover:text-danger transition-all mr-2"
-                  aria-label="Remove from playlist"
+            {playlist.songs.map((song, i) => {
+              const isDragging = draggingId === song.id;
+              const isDragOver = dragOverId === song.id && draggingId !== song.id;
+              return (
+                <div
+                  key={song.id}
+                  draggable={isUserPlaylist}
+                  onDragStart={(e) => {
+                    if (!isUserPlaylist) return;
+                    setDraggingId(song.id);
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", song.id);
+                  }}
+                  onDragOver={(e) => {
+                    if (!isUserPlaylist || !draggingId) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    if (dragOverId !== song.id) setDragOverId(song.id);
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverId === song.id) setDragOverId(null);
+                  }}
+                  onDrop={(e) => {
+                    if (!isUserPlaylist) return;
+                    e.preventDefault();
+                    const fromId =
+                      draggingId || e.dataTransfer.getData("text/plain");
+                    setDragOverId(null);
+                    setDraggingId(null);
+                    if (fromId) reorderSongs(fromId, song.id);
+                  }}
+                  onDragEnd={() => {
+                    setDraggingId(null);
+                    setDragOverId(null);
+                  }}
+                  className={`group relative flex items-center ${
+                    isDragging ? "opacity-40" : ""
+                  } ${
+                    isDragOver ? "ring-1 ring-accent-primary/60 rounded-md" : ""
+                  }`}
                 >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
+                  {isUserPlaylist && (
+                    <span
+                      aria-hidden
+                      className="w-5 flex items-center justify-center text-text-muted opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity"
+                    >
+                      <GripVertical className="w-4 h-4" />
+                    </span>
+                  )}
+                  <div className="flex-1">
+                    <SongRow
+                      song={song}
+                      index={i}
+                      showIndex
+                      queue={playlist.songs}
+                      onContextMenu={handleContextMenu}
+                    />
+                  </div>
+                  <button
+                    onClick={() => handleRemoveSong(song.id)}
+                    className="p-1.5 opacity-0 group-hover:opacity-100 text-text-muted hover:text-danger transition-all mr-2"
+                    aria-label="Remove from playlist"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
 
-          {/* Recommended */}
           <RecommendedForPlaylist
             playlistId={playlist.id}
             seedSongs={playlist.songs}
-            onSongAdded={(song) =>
-              setPlaylist((p) =>
-                p
-                  ? {
-                      ...p,
-                      songs: [...p.songs, song],
-                      updatedAt: Date.now(),
-                    }
-                  : p
-              )
-            }
+            onSongAdded={handleSongAdded}
           />
         </>
       )}
@@ -260,6 +422,30 @@ export default function PlaylistPage({ params }: { params: { id: string } }) {
         isOpen={!!addToPlaylistSong}
         song={addToPlaylistSong}
         onClose={() => setAddToPlaylistSong(null)}
+      />
+
+      <PlaylistOptionsMenu
+        isOpen={!!optionsAnchor}
+        anchorRect={optionsAnchor}
+        onClose={() => setOptionsAnchor(null)}
+        onEditDetails={() => setShowEdit(true)}
+        onDelete={() => setShowDelete(true)}
+      />
+
+      <DeletePlaylistDialog
+        isOpen={showDelete}
+        playlistName={playlist.name}
+        onClose={() => setShowDelete(false)}
+        onConfirm={handleDelete}
+      />
+
+      <EditPlaylistDetailsModal
+        isOpen={showEdit}
+        initialName={playlist.name}
+        initialDescription={playlist.description}
+        coverUrl={playlist.isDefault ? undefined : coverImage}
+        onClose={() => setShowEdit(false)}
+        onSave={handleSaveDetails}
       />
     </div>
   );

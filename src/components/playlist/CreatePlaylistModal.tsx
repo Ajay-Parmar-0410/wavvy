@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 
@@ -16,6 +17,11 @@ export default function CreatePlaylistModal({
   onCreate,
 }: CreatePlaylistModalProps) {
   const [name, setName] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,22 +33,24 @@ export default function CreatePlaylistModal({
     }
   };
 
-  return (
-    <AnimatePresence>
+  if (!mounted) return null;
+
+  return createPortal(
+    (<AnimatePresence>
       {isOpen && (
-        <>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] bg-black/50"
+            className="absolute inset-0 bg-black/50"
             onClick={onClose}
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed z-[71] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bg-bg-secondary rounded-xl border border-border p-6 shadow-2xl"
+            className="relative z-[71] w-full max-w-sm bg-bg-secondary rounded-xl border border-border p-6 shadow-2xl"
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-heading text-lg font-semibold text-text-primary">
@@ -83,8 +91,9 @@ export default function CreatePlaylistModal({
               </div>
             </form>
           </motion.div>
-        </>
+        </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>),
+    document.body,
   );
 }
