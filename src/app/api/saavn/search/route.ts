@@ -5,6 +5,7 @@ import { searchAll, searchSaavn, searchSongs } from "@/lib/saavn";
 // against the India catalog (otherwise Vercel's default IAD region gets
 // a US-biased ranking, e.g. "Ramta Jogi" returns a Punjabi Club Mix
 // instead of Sukhwinder Singh's 1999 Taal original).
+export const runtime = "edge";
 export const preferredRegion = "bom1";
 
 export async function GET(request: NextRequest) {

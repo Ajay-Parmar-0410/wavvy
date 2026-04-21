@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPlaylistById } from "@/lib/saavn";
 
+export const runtime = "edge";
 export const preferredRegion = "bom1";
 
 export async function GET(
