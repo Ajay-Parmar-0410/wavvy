@@ -153,11 +153,15 @@ export async function searchSaavn(query: string): Promise<SearchResults> {
 }
 
 export async function searchSongs(query: string, page = 1, limit = 20): Promise<Song[]> {
+  // cc=in keeps ranking consistent with the India catalog regardless of the
+  // calling region — without it, Vercel's US edge gets a limited US catalog
+  // (e.g. Ramta Jogi returns a 2015 Club Mix instead of the 1999 Taal original).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = (await fetchSaavn("search.getResults", {
     q: query,
     p: String(page),
     n: String(limit),
+    cc: "in",
   })) as any;
   return (data.results || []).map(parseSong);
 }
@@ -168,6 +172,7 @@ export async function searchAlbumsApi(query: string, limit = 10): Promise<Album[
     q: query,
     p: "1",
     n: String(limit),
+    cc: "in",
   })) as any;
   return (data.results || []).map(parseAlbum);
 }
@@ -178,6 +183,7 @@ export async function searchArtistsApi(query: string, limit = 10): Promise<Artis
     q: query,
     p: "1",
     n: String(limit),
+    cc: "in",
   })) as any;
   return (data.results || []).map(parseArtist);
 }
