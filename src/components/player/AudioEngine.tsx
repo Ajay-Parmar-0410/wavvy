@@ -5,9 +5,18 @@ import { usePlayerStore } from "@/stores/playerStore";
 import { db } from "@/lib/db";
 import { getOfflineStreamUrl } from "@/hooks/useDownload";
 
+const MAX_RETRIES = 3;
+
 export default function AudioEngine() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const seekingRef = useRef(false);
+  // Guard against double-advance when both `ended` and the `timeupdate`
+  // fallback fire for the same song. Reset on every new song load.
+  const advancedSongIdRef = useRef<string | null>(null);
+  const retryRef = useRef<{
+    count: number;
+    timer: ReturnType<typeof setTimeout> | null;
+  }>({ count: 0, timer: null });
 
   const currentSong = usePlayerStore((s) => s.currentSong);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
@@ -30,15 +39,23 @@ export default function AudioEngine() {
 
     const audio = audioRef.current;
 
-    const onLoadedMetadata = () => setDuration(audio.duration);
-    const onTimeUpdate = () => {
-      if (!seekingRef.current) {
-        setCurrentTime(audio.currentTime);
+    const clearRetry = () => {
+      if (retryRef.current.timer) {
+        clearTimeout(retryRef.current.timer);
+        retryRef.current.timer = null;
       }
     };
-    const onEnded = () => {
-      // When audio.loop is true the browser does not fire `ended` at all,
-      // so this guard is defensive against environments that miss loop.
+
+    // Advance with a per-song guard so `ended` + the `timeupdate` fallback
+    // don't both fire playNext for the same track.
+    const advance = () => {
+      const song = usePlayerStore.getState().currentSong;
+      if (!song) return;
+      if (advancedSongIdRef.current === song.id) return;
+      advancedSongIdRef.current = song.id;
+      clearRetry();
+      retryRef.current.count = 0;
+
       if (usePlayerStore.getState().repeat === "one") {
         audio.currentTime = 0;
         audio.play().catch(() => setIsPlaying(false));
@@ -46,18 +63,85 @@ export default function AudioEngine() {
       }
       playNext();
     };
-    const onError = () => setIsPlaying(false);
+
+    // Retry failed playback with exponential backoff (1s, 2s, 4s), preserving
+    // the resume position. After MAX_RETRIES we skip forward so the queue
+    // doesn't freeze on one bad stream.
+    const scheduleRetry = () => {
+      if (retryRef.current.count >= MAX_RETRIES) {
+        retryRef.current.count = 0;
+        clearRetry();
+        advance();
+        return;
+      }
+      const delay = 1000 * Math.pow(2, retryRef.current.count);
+      retryRef.current.count += 1;
+      clearRetry();
+      retryRef.current.timer = setTimeout(() => {
+        retryRef.current.timer = null;
+        if (!audio.src) return;
+        const resumeAt = audio.currentTime;
+        audio.load();
+        const onCanPlay = () => {
+          audio.removeEventListener("canplay", onCanPlay);
+          if (resumeAt > 0 && isFinite(resumeAt)) {
+            try {
+              audio.currentTime = resumeAt;
+            } catch {
+              /* ignore — some streams don't support resume */
+            }
+          }
+          audio.play().catch(() => scheduleRetry());
+        };
+        audio.addEventListener("canplay", onCanPlay);
+      }, delay);
+    };
+
+    const onLoadedMetadata = () => {
+      setDuration(audio.duration);
+      advancedSongIdRef.current = null;
+    };
+    const onTimeUpdate = () => {
+      if (!seekingRef.current) {
+        setCurrentTime(audio.currentTime);
+      }
+      // Belt-and-suspenders auto-advance: mobile Chrome + Bluetooth routing
+      // occasionally swallows the `ended` event, which breaks both the
+      // natural queue advance and the repeat=all wrap-around. Detect the
+      // near-end window here as a fallback.
+      const duration = audio.duration;
+      if (
+        !audio.loop &&
+        !audio.paused &&
+        duration > 0 &&
+        isFinite(duration) &&
+        audio.currentTime >= duration - 0.25
+      ) {
+        advance();
+      }
+    };
+    const onEnded = () => advance();
+    const onPlaying = () => {
+      retryRef.current.count = 0;
+      clearRetry();
+    };
+    const onError = () => {
+      if (audio.src && !audio.ended) scheduleRetry();
+    };
 
     audio.addEventListener("loadedmetadata", onLoadedMetadata);
     audio.addEventListener("timeupdate", onTimeUpdate);
     audio.addEventListener("ended", onEnded);
     audio.addEventListener("error", onError);
+    audio.addEventListener("playing", onPlaying);
 
     return () => {
       audio.removeEventListener("loadedmetadata", onLoadedMetadata);
       audio.removeEventListener("timeupdate", onTimeUpdate);
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("error", onError);
+      audio.removeEventListener("playing", onPlaying);
+      clearRetry();
     };
   }, [setDuration, setCurrentTime, setIsPlaying, playNext]);
 
@@ -66,6 +150,14 @@ export default function AudioEngine() {
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !currentSong) return;
+
+    // New song → drop any in-flight retry on the previous song's URL.
+    if (retryRef.current.timer) {
+      clearTimeout(retryRef.current.timer);
+      retryRef.current.timer = null;
+    }
+    retryRef.current.count = 0;
+    advancedSongIdRef.current = null;
 
     let cancelled = false;
 

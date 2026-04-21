@@ -85,3 +85,68 @@ describe("AudioEngine — feedback #2 (repeat-one native loop)", () => {
     expect(usePlayerStore.getState().currentSong?.id).toBe("2");
   });
 });
+
+describe("playerStore — auto-advance / repeat-all wrap-around", () => {
+  beforeEach(() => {
+    usePlayerStore.setState({
+      currentSong: null,
+      isPlaying: false,
+      duration: 0,
+      currentTime: 0,
+      volume: 0.7,
+      isMuted: false,
+      queue: [],
+      queueIndex: -1,
+      shuffle: false,
+      repeat: "off",
+      shuffledIndices: [],
+      isExpandedPlayer: false,
+      isQueueOpen: false,
+    });
+  });
+
+  it("playNext advances to the next song in the queue", () => {
+    const songs = [makeSong("a"), makeSong("b"), makeSong("c")];
+    act(() => {
+      usePlayerStore.getState().playSong(songs[0], songs, 0);
+      usePlayerStore.getState().playNext();
+    });
+    expect(usePlayerStore.getState().currentSong?.id).toBe("b");
+    expect(usePlayerStore.getState().queueIndex).toBe(1);
+    expect(usePlayerStore.getState().isPlaying).toBe(true);
+  });
+
+  it("playNext with repeat=all wraps from last to first song", () => {
+    const songs = [makeSong("a"), makeSong("b")];
+    act(() => {
+      usePlayerStore.getState().playSong(songs[1], songs, 1);
+      usePlayerStore.setState({ repeat: "all" });
+      usePlayerStore.getState().playNext();
+    });
+    expect(usePlayerStore.getState().currentSong?.id).toBe("a");
+    expect(usePlayerStore.getState().queueIndex).toBe(0);
+    expect(usePlayerStore.getState().isPlaying).toBe(true);
+  });
+
+  it("playNext with repeat=off at end of queue stops playback", () => {
+    const songs = [makeSong("a"), makeSong("b")];
+    act(() => {
+      usePlayerStore.getState().playSong(songs[1], songs, 1);
+      usePlayerStore.setState({ repeat: "off" });
+      usePlayerStore.getState().playNext();
+    });
+    expect(usePlayerStore.getState().isPlaying).toBe(false);
+    expect(usePlayerStore.getState().queueIndex).toBe(1);
+  });
+
+  it("playPrevious with repeat=all wraps from first to last song", () => {
+    const songs = [makeSong("a"), makeSong("b"), makeSong("c")];
+    act(() => {
+      usePlayerStore.getState().playSong(songs[0], songs, 0);
+      usePlayerStore.setState({ repeat: "all", currentTime: 0 });
+      usePlayerStore.getState().playPrevious();
+    });
+    expect(usePlayerStore.getState().currentSong?.id).toBe("c");
+    expect(usePlayerStore.getState().queueIndex).toBe(2);
+  });
+});
