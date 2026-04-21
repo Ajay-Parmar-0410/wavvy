@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getTrending } from "@/lib/saavn";
 
+export const preferredRegion = "bom1";
+
 export async function GET() {
   try {
     const data = await getTrending();

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLyrics } from "@/lib/saavn";
 
+export const preferredRegion = "bom1";
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
